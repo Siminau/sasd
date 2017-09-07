@@ -8,3 +8,7 @@ authors = ["Ariel De Ocampo <arielmakestuff@gmail.com>"]
 [dependencies.siminau-rpc]
 git = "https://github.com/Siminau/siminau-rpc"
 branch = "develop"
+
+[dependencies.siminau-rpc-derive]
+git = "https://github.com/Siminau/siminau-rpc"
+branch = "develop"
