@@ -1,0 +1,10 @@
+[package]
+name = "sasd"
+version = "0.1.0"
+authors = ["Ariel De Ocampo <arielmakestuff@gmail.com>"]
+
+[dependencies]
+
+[dependencies.siminau-rpc]
+git = "https://github.com/Siminau/siminau-rpc"
+branch = "develop"
