@@ -1,22 +1,7 @@
-// src/main.rs
+// error.rs
 // Copyright (C) 2017 authors and contributors (see AUTHORS file)
 //
 // This file is released under the MIT License.
-
-// ===========================================================================
-// Externs
-// ===========================================================================
-
-// Third-party externs
-
-#[macro_use]
-extern crate error_chain;
-
-extern crate siminau_rpc;
-
-#[macro_use]
-extern crate siminau_rpc_derive;
-
 
 // ===========================================================================
 // Imports
@@ -27,24 +12,22 @@ extern crate siminau_rpc_derive;
 
 // Third-party imports
 
+use siminau_rpc::error as rpcerror;
+
 // Local imports
 
 // ===========================================================================
-// Modules
+// Errors
 // ===========================================================================
 
+error_chain! {
+    types {
+        SasdError, SasdErrorKind, SasdResultExt, SasdResult;
+    }
 
-pub mod rpc;
-
-
-// ===========================================================================
-// Main
-// ===========================================================================
-
-
-fn main()
-{
-    println!("Hello, world!");
+    links {
+        Net(rpcerror::RpcError, rpcerror::RpcErrorKind)
+    }
 }
 
 
