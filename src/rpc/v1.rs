@@ -19,96 +19,98 @@ use siminau_rpc::message::CodeConvert;
 
 
 // ===========================================================================
-//
+// Session
 // ===========================================================================
 
 
 #[derive(Debug, PartialEq, Clone, CodeConvert)]
-pub enum RequestMethod {
-    // Initiate client session by requesting an API version
-    Version,
-
+pub enum SessionMethod {
     // Request to attach to the agent session. Response will be a list with 2 items:
     // 1. Session token
     // 2. Absolute path to a temporary file that contains an auth token
-    Attach,
+    Attach = 4,
 
     // The client will have to read the auth token contained in the file
     // referenced by the second result item of the attach response, and send
     // this request which has 2 arguments:
     // 1. Session token
     // 2. Auth token
-    AuthAttach,
+    AuthAttach = 5,
 
     // No arguments
-    KeyList,
+    KeyList = 6,
 
     // Single argument: map of attr=value pairs (both attr and value are
     // strings)
-    CreateKey,
+    CreateKey = 7,
 
     // Single argument: map of attr=value pairs (both attr and value are
     // strings)
-    DeleteKey,
+    DeleteKey = 8,
+}
 
+
+#[derive(Debug, PartialEq, Clone, CodeConvert)]
+pub enum SessionError {
+    Nil = 0,
+
+    // Attach attempt failed (eg invalid auth)
+    InvalidAttach = 9,
+
+    KeyExists = 10,
+
+    KeyNotFound = 11,
+}
+
+
+// ===========================================================================
+// Protocol
+// ===========================================================================
+
+
+#[derive(Debug, PartialEq, Clone, CodeConvert)]
+pub enum ProtocolMethod {
     // Single argument: map of attr=value pairs (both attr and value are
     // strings)
     // The map must include a proto attribute whose value is the name of the
     // protocol module to use
-    ProtocolStart,
+    ProtocolStart = 12,
 
     // Single argument: bytes
-    ProtocolWrite,
+    ProtocolWrite = 13,
 
     // Single argument: bytes
-    ProtocolRead,
+    ProtocolRead = 14,
 
     // Single argument: map of attr=value pairs (attr is a string)
-    ProtocolConfirm,
+    ProtocolConfirm = 15,
 
     // Single argument: map of attr=value pairs (attr is a string)
-    ProtocolNeedKey,
+    ProtocolNeedKey = 16,
 
     // Single argument: map of attr=value pairs (attr is a string)
-    ProtocolNeedKeyDone,
+    ProtocolNeedKeyDone = 17,
 
     // No arguments
-    ProtocolAuthInfo,
+    ProtocolAuthInfo = 18,
 }
 
 
 #[derive(Debug, PartialEq, Clone, CodeConvert)]
-pub enum ResponseError {
-    Nil,
+pub enum ProtocolError {
+    Nil = 0,
 
-    // API version is unsupported by the server
-    VersionUnsupported,
+    UnknownProtocol = 19,
 
-    // Attach attempt failed (eg invalid auth)
-    InvalidAttach,
+    InvalidProtocolMessage = 20,
 
-    KeyExists,
+    ProtocolError = 21,
 
-    KeyNotFound,
+    ProtocolNeedKey = 22,
 
-    UnknownProtocol,
+    ProtocolNeedConfirmation = 23,
 
-    InvalidProtocolMessage,
-
-    ProtocolError,
-
-    ProtocolNeedKey,
-
-    ProtocolNeedConfirmation,
-
-    InvalidProtocolAuth,
-}
-
-
-#[derive(Debug, PartialEq, Clone, CodeConvert)]
-pub enum Notice {
-    // No more requests will be made
-    Done,
+    InvalidProtocolAuth = 24,
 }
 
 
