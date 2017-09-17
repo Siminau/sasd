@@ -47,10 +47,10 @@ pub enum RequestMethod {
 
 
 #[derive(Debug, PartialEq, Clone, CodeConvert)]
-pub enum RequestError {
+pub enum ResponseError {
     // API version is unsupported by the server
     // Result argument: unsigned integer
-    VersionUnsupported = 3,
+    UnsupportedVersion = 3,
 }
 
 

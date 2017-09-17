@@ -1,4 +1,4 @@
-// error.rs
+// src/test/mod.rs
 // Copyright (C) 2017 authors and contributors (see AUTHORS file)
 //
 // This file is released under the MIT License.
@@ -12,28 +12,15 @@
 
 // Third-party imports
 
-use siminau_rpc::error as rpcerror;
-
 // Local imports
 
+
 // ===========================================================================
-// Errors
+// Modules
 // ===========================================================================
 
-error_chain! {
-    types {
-        SasdError, SasdErrorKind, SasdResultExt, SasdResult;
-    }
 
-    links {
-        Net(rpcerror::RpcError, rpcerror::RpcErrorKind);
-    }
-
-    errors {
-        UnexpectedMessage
-        InvalidMessage
-    }
-}
+mod protocol;
 
 
 // ===========================================================================

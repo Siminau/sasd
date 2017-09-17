@@ -1,36 +1,15 @@
-// src/main.rs
+// src/test/protocol/mod.rs
 // Copyright (C) 2017 authors and contributors (see AUTHORS file)
 //
 // This file is released under the MIT License.
 
 // ===========================================================================
-// Features
+// Modules
 // ===========================================================================
 
-// #![feature(use_extern_macros)]
 
-// ===========================================================================
-// Externs
-// ===========================================================================
-
-// Third-party externs
-
-#[macro_use]
-extern crate error_chain;
-
-#[cfg(test)]
-#[macro_use]
-extern crate matches;
-
-#[cfg(test)]
-#[macro_use]
-extern crate quickcheck;
-
-extern crate rmpv;
-extern crate siminau_rpc;
-
-#[macro_use]
-extern crate siminau_rpc_derive;
+mod state;
+mod start;
 
 
 // ===========================================================================
@@ -42,28 +21,37 @@ extern crate siminau_rpc_derive;
 
 // Third-party imports
 
+use rmpv::Value;
+use siminau_rpc::error::RpcErrorKind;
+use siminau_rpc::message::{Message, MessageType};
+
 // Local imports
 
-// ===========================================================================
-// Modules
-// ===========================================================================
+use error::{SasdErrorKind, SasdResult};
+use protocol::{BoxState, Info, Protocol, Request, Response, State, StateKind};
+use protocol::v1;
+use rpc;
 
-
-pub mod error;
-pub mod rpc;
-pub mod protocol;
-
-#[cfg(test)]
-mod test;
 
 // ===========================================================================
-// Main
+// Helpers
 // ===========================================================================
 
 
-fn main()
-{
-    println!("Hello, world!");
+struct Test;
+
+
+impl State for Test {
+    fn dispatch(&self, _msg: Message)
+        -> SasdResult<(Option<BoxState>, Option<Message>)>
+    {
+        Ok((None, None))
+    }
+
+    fn kind(&self) -> StateKind
+    {
+        StateKind::Start
+    }
 }
 
 
