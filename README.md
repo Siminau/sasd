@@ -1,5 +1,8 @@
 # sasd
 
+[![Build Status](https://travis-ci.org/Siminau/sasd.svg?branch=arielmakestuff%2Fsetup-travisci)](https://travis-ci.org/Siminau/sasd)
+[![Build status](https://ci.appveyor.com/api/projects/status/7io2a0g88yxnn2yn?svg=true)](https://ci.appveyor.com/project/arielmakestuff/sasd)
+
 An application that manages user secrets and security protocols.
 
 ## Getting started
