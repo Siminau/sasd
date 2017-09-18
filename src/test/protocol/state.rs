@@ -151,6 +151,7 @@ mod handle_version {
         assert!(value);
     }
 
+    #[cfg(target_family = "windows")]
     #[test]
     fn call_version()
     {
@@ -178,6 +179,41 @@ mod handle_version {
         let value = match result {
             Ok((Some(s), None)) => {
                 s.kind() == StateKind::V1(v1::V1StateKind::InitSession)
+            }
+            _ => false,
+        };
+
+        assert!(value);
+    }
+
+    #[cfg(target_family = "unix")]
+    #[test]
+    fn call_version()
+    {
+        // -----------------------------
+        // GIVEN
+        // A valid Request message and
+        // A state object
+        // -----------------------------
+        let args = vec![Value::from(Protocol::V1.to_u64())];
+        let request = Request::new(42, rpc::RequestMethod::Version, args);
+
+        // Create Test state object
+        let test = Box::new(Test);
+
+        // -----------------------------------------------------------
+        // WHEN
+        // Test::handle_version() is called with the message
+        // -----------------------------------------------------------
+        let result = test.handle_version(request.into());
+
+        // ---------------------------------------
+        // THEN
+        // version() is called
+        // ---------------------------------------
+        let value = match result {
+            Ok((Some(s), None)) => {
+                s.kind() == StateKind::V1(v1::V1StateKind::Session)
             }
             _ => false,
         };

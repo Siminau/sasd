@@ -51,6 +51,7 @@ extern crate siminau_rpc_derive;
 
 pub mod error;
 pub mod rpc;
+pub mod os;
 pub mod protocol;
 
 #[cfg(test)]

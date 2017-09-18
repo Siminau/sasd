@@ -23,6 +23,7 @@ use siminau_rpc::message::CodeConvert;
 // ===========================================================================
 
 
+#[cfg(target_family = "windows")]
 #[derive(Debug, PartialEq, Clone, CodeConvert)]
 pub enum SessionMethod {
     // Request to attach to the agent session. Response will be a list with 2 items:
@@ -37,6 +38,22 @@ pub enum SessionMethod {
     // 2. Auth token
     AuthAttach = 5,
 
+    // No arguments
+    KeyList = 6,
+
+    // Single argument: map of attr=value pairs (both attr and value are
+    // strings)
+    CreateKey = 7,
+
+    // Single argument: map of attr=value pairs (both attr and value are
+    // strings)
+    DeleteKey = 8,
+}
+
+
+#[cfg(target_family = "unix")]
+#[derive(Debug, PartialEq, Clone, CodeConvert)]
+pub enum SessionMethod {
     // No arguments
     KeyList = 6,
 

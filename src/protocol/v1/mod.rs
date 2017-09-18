@@ -18,6 +18,9 @@ use siminau_rpc::message::response::ResponseMessage;
 
 // Local imports
 
+#[cfg(target_family = "windows")]
+pub use os::windows::protocol::v1::InitSession;
+
 use error::SasdResult;
 use protocol::{State, StateKind};
 use rpc::v1 as rpc1;
@@ -50,9 +53,18 @@ pub type SessionResponse = ResponseMessage<rpc1::SessionError>;
 // ===========================================================================
 
 
+#[cfg(target_family = "windows")]
 #[derive(Debug, PartialEq, Clone)]
 pub enum V1StateKind {
     InitSession,
+    Session,
+}
+
+
+#[cfg(target_family = "unix")]
+#[derive(Debug, PartialEq, Clone)]
+pub enum V1StateKind {
+    Session,
 }
 
 
@@ -67,14 +79,14 @@ macro_rules! v1state {
 
 
 // ===========================================================================
-// Initialize session state
+// Session
 // ===========================================================================
 
 
-pub struct InitSession;
+pub struct Session;
 
 
-impl State for InitSession {
+impl State for Session {
     fn dispatch(&self, _msg: Message)
         -> SasdResult<(Option<Box<State>>, Option<Message>)>
     {
@@ -83,7 +95,7 @@ impl State for InitSession {
 
     fn kind(&self) -> StateKind
     {
-        v1state!(InitSession)
+        v1state!(Session)
     }
 }
 

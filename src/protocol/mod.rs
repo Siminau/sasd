@@ -78,6 +78,22 @@ pub type Info = NotificationMessage<rpc::Notice>;
 pub type BoxState = Box<State>;
 
 
+#[cfg(unix)]
+fn first_state(rpcver: Protocol) -> BoxState {
+    match rpcver {
+        Protocol::V1 => Box::new(v1::Session),
+    }
+}
+
+
+#[cfg(windows)]
+fn first_state(rpcver: Protocol) -> BoxState {
+    match rpcver {
+        Protocol::V1 => Box::new(v1::InitSession),
+    }
+}
+
+
 fn version(req: Request) -> SasdResult<(Option<BoxState>, Option<Message>)>
 {
     let request_args = req.message_args();
@@ -105,9 +121,7 @@ fn version(req: Request) -> SasdResult<(Option<BoxState>, Option<Message>)>
         }
     };
 
-    let val: BoxState = match rpcver {
-        Protocol::V1 => Box::new(v1::InitSession),
-    };
+    let val = first_state(rpcver);
     Ok((Some(val), None))
 }
 
@@ -386,6 +400,7 @@ mod test {
         }
 
         quickcheck! {
+            #[cfg(target_family = "windows")]
             fn request_val_good(val: <Protocol as CodeConvert<Protocol>>::int_type) -> TestResult
             {
                 if val as u64 > Protocol::max_number() || val == 0 {
@@ -414,6 +429,41 @@ mod test {
                 let value = match result {
                     Ok((Some(state), None)) => {
                         state.kind() == StateKind::V1(v1::V1StateKind::InitSession)
+                    }
+                    _ => false,
+                };
+                TestResult::from_bool(value)
+            }
+
+            #[cfg(target_family = "unix")]
+            fn request_val_good(val: <Protocol as CodeConvert<Protocol>>::int_type) -> TestResult
+            {
+                if val as u64 > Protocol::max_number() || val == 0 {
+                    return TestResult::discard()
+                }
+
+                // -----------------------------
+                // GIVEN
+                // A valid request message w/ RequestMethod::Version and
+                // args w/ length == 1 and
+                // arg == valid Protocol number value
+                // -----------------------------
+                let args = vec![Value::from(val)];
+                let request = Request::new(42, rpc::RequestMethod::Version, args);
+
+                // -----------------------------------------------------------
+                // WHEN
+                // version() is called with the request message
+                // -----------------------------------------------------------
+                let result = version(request);
+
+                // ---------------------------------------
+                // THEN
+                // (Some(Session), None) is returned
+                // ---------------------------------------
+                let value = match result {
+                    Ok((Some(state), None)) => {
+                        state.kind() == StateKind::V1(v1::V1StateKind::Session)
                     }
                     _ => false,
                 };
