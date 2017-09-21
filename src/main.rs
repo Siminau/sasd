@@ -15,6 +15,8 @@
 
 // Third-party externs
 
+extern crate config;
+
 #[macro_use]
 extern crate error_chain;
 
@@ -27,6 +29,9 @@ extern crate matches;
 extern crate quickcheck;
 
 extern crate rmpv;
+// extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate siminau_rpc;
 
 #[macro_use]
@@ -53,6 +58,7 @@ pub mod error;
 pub mod rpc;
 pub mod os;
 pub mod protocol;
+pub mod settings;
 
 #[cfg(test)]
 mod test;

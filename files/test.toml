@@ -1,0 +1,8 @@
+port = 1234
+
+[windows]
+token_data_dir = "C:/Users/deocampo/AppData/Local/Siminau/sasd"
+
+# [unix]
+# socket_dir (String)
+

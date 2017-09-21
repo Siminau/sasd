@@ -12,6 +12,7 @@
 
 // Third-party imports
 
+use config::ConfigError;
 use siminau_rpc::error as rpcerror;
 
 // Local imports
@@ -29,9 +30,17 @@ error_chain! {
         Net(rpcerror::RpcError, rpcerror::RpcErrorKind);
     }
 
+    foreign_links {
+        Config(ConfigError);
+    }
+
     errors {
         UnexpectedMessage
         InvalidMessage
+        SettingsError(msg: String) {
+            description("settings validation failure")
+            display("Settings validation error: {}", msg)
+        }
     }
 }
 
