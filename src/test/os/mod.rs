@@ -1,7 +1,8 @@
-// src/test/mod.rs
+// src/test/os/mod.rs
 // Copyright (C) 2017 authors and contributors (see AUTHORS file)
 //
 // This file is released under the MIT License.
+
 
 // ===========================================================================
 // Imports
@@ -20,9 +21,8 @@
 // ===========================================================================
 
 
-mod os;
-mod protocol;
-mod settings;
+#[cfg(windows)]
+mod windows;
 
 
 // ===========================================================================

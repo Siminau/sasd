@@ -10,7 +10,12 @@
 
 // Stdlib imports
 
+// use std::rc::Rc;
+// use std::sync::RwLock;
+
 // Third-party imports
+
+// use config::Config;
 
 use rmpv::Value;
 use siminau_rpc::error::{RpcErrorKind, RpcResult};
@@ -23,6 +28,12 @@ use siminau_rpc::message::response::ResponseMessage;
 
 use error::{SasdErrorKind, SasdResult};
 use rpc;
+use state::SessionStateHandle;
+
+// Re-exports
+
+#[cfg(windows)]
+pub use os::windows::protocol::SessionStore;
 
 
 // ===========================================================================
@@ -79,17 +90,19 @@ pub type BoxState = Box<State>;
 
 
 #[cfg(unix)]
-fn first_state(rpcver: Protocol) -> BoxState {
+fn first_state(rpcver: Protocol) -> BoxState
+{
     match rpcver {
-        Protocol::V1 => Box::new(v1::Session),
+        Protocol::V1 => Box::new(v1::Session::new()),
     }
 }
 
 
 #[cfg(windows)]
-fn first_state(rpcver: Protocol) -> BoxState {
+fn first_state(rpcver: Protocol) -> BoxState
+{
     match rpcver {
-        Protocol::V1 => Box::new(v1::InitSession),
+        Protocol::V1 => Box::new(v1::InitSession::new()),
     }
 }
 
@@ -127,7 +140,7 @@ fn version(req: Request) -> SasdResult<(Option<BoxState>, Option<Message>)>
 
 
 pub trait State {
-    fn handle_version(&self, msg: Message)
+    fn handle_version(&mut self, state: &mut SessionStateHandle, msg: Message)
         -> SasdResult<(Option<BoxState>, Option<Message>)>
     {
         // Check request method value
@@ -145,11 +158,11 @@ pub trait State {
                     // _ => bail!(SasdErrorKind::UnexpectedMessage),
                 }
             }
-            Err(_) => self.dispatch(msg),
+            Err(_) => self.dispatch(state, msg),
         }
     }
 
-    fn handle_done(&self, msg: Message)
+    fn handle_done(&mut self, state: &mut SessionStateHandle, msg: Message)
         -> SasdResult<(Option<BoxState>, Option<Message>)>
     {
         // Check notification code value
@@ -167,22 +180,22 @@ pub trait State {
                     // _ => bail!(SasdErrorKind::UnexpectedMessage),
                 }
             }
-            Err(_) => self.dispatch(msg),
+            Err(_) => self.dispatch(state, msg),
         }
     }
 
     // Accepts a RequestMessage, and returns (State, ResponseMessage)
-    fn change(&self, msg: Message)
+    fn change(&mut self, mut state: SessionStateHandle, msg: Message)
         -> SasdResult<(Option<BoxState>, Option<Message>)>
     {
         match msg.message_type() {
-            MessageType::Request => self.handle_version(msg),
-            MessageType::Notification => self.handle_done(msg),
+            MessageType::Request => self.handle_version(&mut state, msg),
+            MessageType::Notification => self.handle_done(&mut state, msg),
             MessageType::Response => bail!(SasdErrorKind::UnexpectedMessage),
         }
     }
 
-    fn dispatch(&self, msg: Message)
+    fn dispatch(&mut self, state: &mut SessionStateHandle, msg: Message)
         -> SasdResult<(Option<BoxState>, Option<Message>)>;
 
     fn kind(&self) -> StateKind;
@@ -197,11 +210,16 @@ pub trait State {
 pub struct Start;
 
 
-// impl Start;
+impl Start {
+    pub fn new() -> Self
+    {
+        Start
+    }
+}
 
 
 impl State for Start {
-    fn dispatch(&self, _msg: Message)
+    fn dispatch(&mut self, _state: &mut SessionStateHandle, _msg: Message)
         -> SasdResult<(Option<BoxState>, Option<Message>)>
     {
         bail!(SasdErrorKind::UnexpectedMessage)

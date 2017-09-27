@@ -9,12 +9,18 @@
 
 
 // Stdlib imports
+// use std::rc::Rc;
+// use std::sync::RwLock;
 
 // Third-party imports
+// use config::Config;
 
 // Local imports
 
+// use protocol::ConfigHandle;
+
 use super::*;
+// use util::create_config;
 
 // ===========================================================================
 // Test Start::dispatch()
@@ -38,7 +44,8 @@ mod dispatch {
             // GIVEN
             // A message w/ message type Request and
             // the message's 3rd argument is an unknown method code number and
-            // a Start state object
+            // a Start state object and
+            // an empty Config object
             // -----------------------------
             // Build Message
             let msgtype = Value::from(MessageType::Request.to_number());
@@ -48,14 +55,21 @@ mod dispatch {
             let val = Value::Array(vec![msgtype, msgid, msgcode, msgargs]);
             let msg = Message::from(val).unwrap();
 
-            // Create Start state object
-            let start = Box::new(Start);
+            // Create Test state object
+            let mut test = Box::new(Start);
+
+            // This dummy is only for testing since cannot access the
+            // state that's attached to the session state
+            let dummy = Box::new(Start);
+
+            // Create session state
+            let mut session_state = dummy_session_state(dummy);
 
             // -----------------------------------------------------------
             // WHEN
             // Start::change() is called with the message
             // -----------------------------------------------------------
-            let result = start.change(msg);
+            let result = test.change(session_state.handle(), msg);
 
             // ---------------------------------------
             // THEN
@@ -65,6 +79,11 @@ mod dispatch {
                 Err(err) => matches!(*err.kind(), SasdErrorKind::UnexpectedMessage),
                 _ => false,
             };
+
+            // --------------------
+            // Cleanup
+            // --------------------
+            cleanup_settings(session_state);
 
             TestResult::from_bool(value)
         }
@@ -84,7 +103,7 @@ mod kind {
         // a Start state object
         // -----------------------------
         // Create Start state object
-        let start = Start;
+        let start = Start::new();
 
         // -----------------------------------------------------------
         // WHEN

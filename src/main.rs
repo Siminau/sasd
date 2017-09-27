@@ -15,10 +15,14 @@
 
 // Third-party externs
 
+extern crate appdirs;
 extern crate config;
 
 #[macro_use]
 extern crate error_chain;
+
+#[cfg(windows)]
+extern crate hex;
 
 #[cfg(test)]
 #[macro_use]
@@ -28,6 +32,8 @@ extern crate matches;
 #[macro_use]
 extern crate quickcheck;
 
+#[cfg(windows)]
+extern crate rand;
 extern crate rmpv;
 // extern crate serde;
 #[macro_use]
@@ -36,6 +42,12 @@ extern crate siminau_rpc;
 
 #[macro_use]
 extern crate siminau_rpc_derive;
+
+#[cfg(test)]
+extern crate tempdir;
+
+#[cfg(windows)]
+extern crate winapi;
 
 
 // ===========================================================================
@@ -59,6 +71,7 @@ pub mod rpc;
 pub mod os;
 pub mod protocol;
 pub mod settings;
+pub mod state;
 
 #[cfg(test)]
 mod test;

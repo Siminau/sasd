@@ -68,6 +68,7 @@ pub struct SettingsConfig {
 // ===========================================================================
 
 
+#[derive(Debug)]
 pub struct UnixBuilder {
     _builder: SettingsBuilder,
 
@@ -77,7 +78,7 @@ pub struct UnixBuilder {
 
 
 impl UnixBuilder {
-    fn new(builder: SettingsBuilder) -> Self
+    pub fn new(builder: SettingsBuilder) -> Self
     {
         UnixBuilder {
             _builder: builder,
@@ -91,21 +92,30 @@ impl UnixBuilder {
         Ok(self)
     }
 
-    pub fn done(self) -> SasdResult<SettingsBuilder>
+    pub fn unix_done(self) -> SasdResult<SettingsBuilder>
     {
-        if cfg!(unix) && self.socket_dir.is_none() {
-            bail!(SasdErrorKind::SettingsError(
-                "Missing socket directory".to_owned(),
-            ))
-        }
         let mut builder = self._builder;
-        let unix = UnixSection { socket_dir: self.socket_dir.unwrap() };
-        builder.unix = Some(unix);
-        Ok(builder)
+        match self.socket_dir {
+            Some(s) => {
+                let unix = UnixSection { socket_dir: s };
+                builder.unix = Some(unix);
+                Ok(builder)
+            }
+            None => {
+                if cfg!(unix) {
+                    bail!(SasdErrorKind::SettingsError(
+                        "Missing socket directory".to_owned(),
+                    ))
+                } else {
+                    Ok(builder)
+                }
+            }
+        }
     }
 }
 
 
+#[derive(Debug)]
 pub struct WindowsBuilder {
     _builder: SettingsBuilder,
     token_data_dir: Option<PathBuf>,
@@ -127,22 +137,30 @@ impl WindowsBuilder {
         Ok(self)
     }
 
-    pub fn done(self) -> SasdResult<SettingsBuilder>
+    pub fn windows_done(self) -> SasdResult<SettingsBuilder>
     {
-        if cfg!(windows) && self.token_data_dir.is_none() {
-            bail!(SasdErrorKind::SettingsError(
-                "Missing token data directory".to_owned(),
-            ))
-        }
         let mut builder = self._builder;
-        let windows =
-            WindowsSection { token_data_dir: self.token_data_dir.unwrap() };
-        builder.windows = Some(windows);
-        Ok(builder)
+        match self.token_data_dir {
+            Some(t) => {
+                let windows = WindowsSection { token_data_dir: t };
+                builder.windows = Some(windows);
+                Ok(builder)
+            }
+            None => {
+                if cfg!(windows) {
+                    bail!(SasdErrorKind::SettingsError(
+                        "Missing token data directory".to_owned(),
+                    ))
+                } else {
+                    Ok(builder)
+                }
+            }
+        }
     }
 }
 
 
+#[derive(Debug)]
 pub struct SettingsBuilder {
     port: Option<u16>,
     unix: Option<UnixSection>,
@@ -164,7 +182,7 @@ impl SettingsBuilder {
     {
         let unix_config = mem::replace(&mut config.unix, None);
         match unix_config {
-            Some(c) => self.unix().socket_dir(c.socket_dir)?.done(),
+            Some(c) => self.unix().socket_dir(c.socket_dir)?.unix_done(),
             None => {
                 if cfg!(unix) {
                     bail!(SasdErrorKind::SettingsError(
@@ -181,7 +199,11 @@ impl SettingsBuilder {
     {
         let windows_config = mem::replace(&mut config.windows, None);
         match windows_config {
-            Some(c) => self.windows().token_data_dir(c.token_data_dir)?.done(),
+            Some(c) => {
+                self.windows()
+                    .token_data_dir(c.token_data_dir)?
+                    .windows_done()
+            }
             None => {
                 if cfg!(windows) {
                     bail!(SasdErrorKind::SettingsError(
@@ -199,8 +221,7 @@ impl SettingsBuilder {
         let builder = builder.port(config.port)?;
         let builder = builder.from_unix_config(&mut config)?;
         let builder = builder.from_windows_config(&mut config)?;
-        let ret = builder.build();
-        Ok(ret)
+        builder.build()
     }
 
     pub fn unix(self) -> UnixBuilder
@@ -225,23 +246,57 @@ impl SettingsBuilder {
     }
 
     #[cfg(unix)]
-    pub fn build(self) -> Settings
+    pub fn build(self) -> SasdResult<Settings>
     {
-        Settings {
-            port: self.port.unwrap(),
-            unix: self.unix.unwrap(),
-            windows: self.windows,
+        if self.unix.is_none() {
+            bail!(SasdErrorKind::SettingsError(
+                "Missing unix configuration".to_owned(),
+            ))
         }
+
+        // Must have port configured
+        let ret = match self.port {
+            Some(p) => {
+                Settings {
+                    port: p,
+                    unix: self.unix.unwrap(),
+                    windows: self.windows,
+                }
+            }
+            None => {
+                bail!(SasdErrorKind::SettingsError(
+                    "Missing config value: port".to_owned(),
+                ))
+            }
+        };
+        Ok(ret)
     }
 
     #[cfg(windows)]
-    pub fn build(self) -> Settings
+    pub fn build(self) -> SasdResult<Settings>
     {
-        Settings {
-            port: self.port.unwrap(),
-            unix: self.unix,
-            windows: self.windows.unwrap(),
+        if self.windows.is_none() {
+            bail!(SasdErrorKind::SettingsError(
+                "Missing windows configuration".to_owned(),
+            ))
         }
+
+        // Must have port configured
+        let ret = match self.port {
+            Some(p) => {
+                Settings {
+                    port: p,
+                    unix: self.unix,
+                    windows: self.windows.unwrap(),
+                }
+            }
+            None => {
+                bail!(SasdErrorKind::SettingsError(
+                    "Missing config value: port".to_owned(),
+                ))
+            }
+        };
+        Ok(ret)
     }
 
     fn validate_path(&self, path: String) -> SasdResult<PathBuf>
@@ -335,34 +390,132 @@ impl Settings {
 // Scratch
 // ===========================================================================
 
-
 #[cfg(test)]
-mod scratch {
-    // port (String)
-    //
-    // [windows]
-    // token_data_dir (String)
-    //
-    // [unix]
-    // socket_dir (String)
-    //
-    //
+pub mod test {
+    // Helpers
 
-    use super::*;
-    use config::*;
-    use std::path::Path;
+    pub mod helper {
+        use super::super::{Settings, UnixSection, WindowsSection};
 
-    #[test]
-    fn test_tmp()
-    {
-        let path = Path::new("files/test.toml");
-        let mut config = Config::new();
-        config.merge(File::from(path)).unwrap();
-        let s: SettingsConfig = config.try_into().unwrap();
+        #[cfg(unix)]
+        pub fn new_settings(port: u16, unix: UnixSection, windows: Option<WindowsSection>)
+            -> Settings
+        {
+            Settings {
+                port: port,
+                unix: unix,
+                windows: windows,
+            }
+        }
 
-        let settings = SettingsBuilder::from_config(s).unwrap();
-        println!("{:?}", settings);
-        println!("{}", settings.windows().token_data_dir.display());
+        #[cfg(windows)]
+        pub fn new_settings(port: u16, unix: Option<UnixSection>, windows: WindowsSection)
+            -> Settings
+        {
+            Settings {
+                port: port,
+                unix: unix,
+                windows: windows,
+            }
+        }
+    }
+
+    // See also: test::settings::unixbuilder
+    mod unixbuilder {
+
+        #[cfg(unix)]
+        mod new {
+            use settings::{SettingsBuilder, UnixBuilder};
+
+            // Default value of socket_dir is None
+            #[test]
+            fn socket_dir_default_value()
+            {
+                // ----------------------------
+                // WHEN
+                // UnixBuilder is instantiated
+                // ----------------------------
+                let settings = SettingsBuilder::new();
+                let builder = UnixBuilder::new(settings);
+
+                // --------------------------------------------
+                // THEN
+                // the private socket_dir field is set to None
+                // --------------------------------------------
+                assert!(builder.socket_dir.is_none())
+            }
+        }
+
+        mod socket_dir {}
+    }
+
+    // See also: test::settings::windowsbuilder
+    mod windowsbuilder {
+
+        #[cfg(windows)]
+        mod new {
+            use settings::{SettingsBuilder, WindowsBuilder};
+
+            // Default value of socket_dir is None
+            #[test]
+            fn token_data_dir_default_value()
+            {
+                // ----------------------------
+                // WHEN
+                // WindowsBuilder is instantiated
+                // ----------------------------
+                let settings = SettingsBuilder::new();
+                let builder = WindowsBuilder::new(settings);
+
+                // --------------------------------------------
+                // THEN
+                // the private token_data_dir field is set to None
+                // --------------------------------------------
+                assert!(builder.token_data_dir.is_none())
+            }
+        }
+    }
+
+    mod settingsbuilder {
+
+        // TODO
+        // this is an integration test
+        #[cfg(windows)]
+        mod from_config {
+            use config::*;
+
+            use settings::{SettingsBuilder, SettingsConfig};
+            use std::fs::remove_dir_all;
+            use std::path::Path;
+            use tempdir::TempDir;
+
+            #[test]
+            fn build_settings()
+            {
+                let path = Path::new("files/test.toml");
+                let mut config = Config::new();
+                config.merge(File::from(path)).unwrap();
+
+                // Change token_data_dir to a tempdir
+                let mut s: SettingsConfig = config.try_into().unwrap();
+                let tempdir = TempDir::new("sasd").unwrap();
+                let dirpath = tempdir.into_path();
+                let dirpath_str =
+                    dirpath.clone().into_os_string().into_string().unwrap();
+                if let Some(ref mut w) = s.windows {
+                    w.token_data_dir = dirpath_str.clone();
+                }
+
+                let settings = SettingsBuilder::from_config(s).unwrap();
+                assert_eq!(
+                    settings.windows().token_data_dir.display().to_string(),
+                    dirpath_str
+                );
+
+                // Delete the temp dir
+                remove_dir_all(dirpath).unwrap();
+            }
+        }
     }
 }
 

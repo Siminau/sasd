@@ -27,7 +27,12 @@ mod handle_version {
     use super::*;
     use siminau_rpc::message::CodeConvert;
 
+    // --------------------
+    // Tests
+    // --------------------
+
     // Error if a response message received
+    // TODO: this is an integration test, should it be here?
     #[test]
     fn method_non_u64()
     {
@@ -46,13 +51,20 @@ mod handle_version {
         let msg = Message::from(val).unwrap();
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::handle_version() is called with the message
         // -----------------------------------------------------------
-        let result = test.handle_version(msg);
+        let result = test.handle_version(&mut session_state.handle(), msg);
 
         // ---------------------------------------
         // THEN
@@ -69,6 +81,11 @@ mod handle_version {
         };
 
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[test]
@@ -80,19 +97,27 @@ mod handle_version {
         // only 3 parameters and
         // A state object
         // -----------------------------------------------
-        let test = Box::new(Test);
-
         let msgtype = Value::from(MessageType::Request.to_number());
         let msgid = Value::from(42);
         let msgmeth = Value::from(rpc::RequestMethod::Version.to_number());
         let msgval = Value::Array(vec![msgtype, msgid, msgmeth]);
         let msg = Message::from(msgval).unwrap();
 
+        // Create Test state object
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
+
         // -----------------------------------------------------------
         // WHEN
         // State::handle_version() is called with the response message
         // -----------------------------------------------------------
-        let result = test.handle_version(msg);
+        let result = test.handle_version(&mut session_state.handle(), msg);
 
         // ---------------------------------------
         // THEN
@@ -111,6 +136,11 @@ mod handle_version {
             _ => false,
         };
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[test]
@@ -131,13 +161,20 @@ mod handle_version {
         let msg = Message::from(val).unwrap();
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::handle_version() is called with the message
         // -----------------------------------------------------------
-        let result = test.handle_version(msg);
+        let result = test.handle_version(&mut session_state.handle(), msg);
 
         // ---------------------------------------
         // THEN
@@ -149,6 +186,11 @@ mod handle_version {
         };
 
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[cfg(target_family = "windows")]
@@ -164,13 +206,21 @@ mod handle_version {
         let request = Request::new(42, rpc::RequestMethod::Version, args);
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::handle_version() is called with the message
         // -----------------------------------------------------------
-        let result = test.handle_version(request.into());
+        let result =
+            test.handle_version(&mut session_state.handle(), request.into());
 
         // ---------------------------------------
         // THEN
@@ -184,6 +234,11 @@ mod handle_version {
         };
 
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[cfg(target_family = "unix")]
@@ -199,13 +254,21 @@ mod handle_version {
         let request = Request::new(42, rpc::RequestMethod::Version, args);
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::handle_version() is called with the message
         // -----------------------------------------------------------
-        let result = test.handle_version(request.into());
+        let result =
+            test.handle_version(&mut session_state.handle(), request.into());
 
         // ---------------------------------------
         // THEN
@@ -219,8 +282,12 @@ mod handle_version {
         };
 
         assert!(value);
-    }
 
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
+    }
 }
 
 // ===========================================================================
@@ -249,13 +316,20 @@ mod handle_done {
         let msg = Message::from(val).unwrap();
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::handle_done() is called with the message
         // -----------------------------------------------------------
-        let result = test.handle_done(msg);
+        let result = test.handle_done(&mut session_state.handle(), msg);
 
         // ---------------------------------------
         // THEN
@@ -272,6 +346,11 @@ mod handle_done {
         };
 
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[test]
@@ -283,8 +362,6 @@ mod handle_done {
         // only 2 parameters and
         // A state object
         // -----------------------------------------------
-        let test = Box::new(Test);
-
         let msgtype = Value::from(MessageType::Notification.to_number());
         let msgid = Value::from(42);
         let msgmeth = Value::from(rpc::Notice::Done.to_number());
@@ -292,11 +369,21 @@ mod handle_done {
         let msgval = Value::Array(vec![msgtype, msgmeth, msgargs, msgid]);
         let msg = Message::from(msgval).unwrap();
 
+        // Create Test state object
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
+
         // -----------------------------------------------------------
         // WHEN
         // State::handle_done() is called with the response message
         // -----------------------------------------------------------
-        let result = test.handle_done(msg);
+        let result = test.handle_done(&mut session_state.handle(), msg);
 
         // ---------------------------------------
         // THEN
@@ -315,6 +402,11 @@ mod handle_done {
             _ => false,
         };
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[test]
@@ -334,13 +426,20 @@ mod handle_done {
         let msg = Message::from(val).unwrap();
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::handle_done() is called with the message
         // -----------------------------------------------------------
-        let result = test.handle_done(msg);
+        let result = test.handle_done(&mut session_state.handle(), msg);
 
         // ---------------------------------------
         // THEN
@@ -352,6 +451,11 @@ mod handle_done {
         };
 
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[test]
@@ -366,13 +470,20 @@ mod handle_done {
         let info = Info::new(rpc::Notice::Done, args);
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::handle_done() is called with the message
         // -----------------------------------------------------------
-        let result = test.handle_done(info.into());
+        let result = test.handle_done(&mut session_state.handle(), info.into());
 
         // ---------------------------------------
         // THEN
@@ -384,8 +495,12 @@ mod handle_done {
         };
 
         assert!(value);
-    }
 
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
+    }
 }
 
 
@@ -396,6 +511,8 @@ mod handle_done {
 
 mod change {
     use super::*;
+    // use siminau_rpc::message::CodeConvert;
+
     use siminau_rpc::message::response::RpcResponse;
 
     #[test]
@@ -411,13 +528,20 @@ mod change {
             Response::new(42, rpc::ResponseError::UnsupportedVersion, res);
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::change() is called with the message
         // -----------------------------------------------------------
-        let result = test.change(resp.into());
+        let result = test.change(session_state.handle(), resp.into());
 
         // ---------------------------------------
         // THEN
@@ -434,6 +558,11 @@ mod change {
         };
 
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[test]
@@ -450,7 +579,7 @@ mod change {
         struct Test;
 
         impl State for Test {
-            fn dispatch(&self, _msg: Message)
+            fn dispatch(&mut self, _state: &mut SessionStateHandle, _msg: Message)
                 -> SasdResult<(Option<BoxState>, Option<Message>)>
             {
                 unreachable!()
@@ -461,7 +590,7 @@ mod change {
                 unreachable!()
             }
 
-            fn handle_version(&self, _msg: Message)
+            fn handle_version(&mut self, _state: &mut SessionStateHandle, _msg: Message)
                 -> SasdResult<(Option<BoxState>, Option<Message>)>
             {
                 let res = Value::from("Hello world!");
@@ -475,13 +604,20 @@ mod change {
         }
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::change() is called with the message
         // -----------------------------------------------------------
-        let result = test.change(req.into());
+        let result = test.change(session_state.handle(), req.into());
 
         // ---------------------------------------
         // THEN
@@ -496,6 +632,11 @@ mod change {
         };
 
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 
     #[test]
@@ -511,7 +652,7 @@ mod change {
         struct Test;
 
         impl State for Test {
-            fn dispatch(&self, _msg: Message)
+            fn dispatch(&mut self, _state: &mut SessionStateHandle, _msg: Message)
                 -> SasdResult<(Option<BoxState>, Option<Message>)>
             {
                 unreachable!()
@@ -522,7 +663,7 @@ mod change {
                 unreachable!()
             }
 
-            fn handle_done(&self, _msg: Message)
+            fn handle_done(&mut self, _state: &mut SessionStateHandle, _msg: Message)
                 -> SasdResult<(Option<BoxState>, Option<Message>)>
             {
                 let res = Value::from("Answer 42");
@@ -536,13 +677,20 @@ mod change {
         }
 
         // Create Test state object
-        let test = Box::new(Test);
+        let mut test = Box::new(Test);
+
+        // This dummy is only for testing since cannot access the
+        // state that's attached to the session state
+        let dummy = Box::new(Test);
+
+        // Create session state
+        let mut session_state = dummy_session_state(dummy);
 
         // -----------------------------------------------------------
         // WHEN
         // Test::change() is called with the message
         // -----------------------------------------------------------
-        let result = test.change(info.into());
+        let result = test.change(session_state.handle(), info.into());
 
         // ---------------------------------------
         // THEN
@@ -557,6 +705,11 @@ mod change {
         };
 
         assert!(value);
+
+        // --------------------
+        // Cleanup
+        // --------------------
+        cleanup_settings(session_state);
     }
 }
 

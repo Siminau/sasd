@@ -5,6 +5,7 @@ authors = ["Ariel De Ocampo <arielmakestuff@gmail.com>"]
 
 [dependencies]
 error-chain = "0.11"
+appdirs = "0.2"
 config = "0.7"
 serde = "1"
 serde_derive = "1"
@@ -26,3 +27,12 @@ features = ["with-serde"]
 [dev-dependencies]
 quickcheck = "0.4"
 matches = "0.1"
+tempdir = "0.3"
+
+[target.'cfg(windows)'.dependencies]
+winapi = "0.2"
+rand = "0.3"
+
+[target.'cfg(windows)'.dependencies.hex]
+git = "https://github.com/KokaKiwi/rust-hex"
+rev = "2ac113ce01eb2f1f4a8fed5845ef20f1202ec5cc"

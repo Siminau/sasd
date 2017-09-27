@@ -19,18 +19,28 @@ mod start;
 
 // Stdlib imports
 
+use std::fs::remove_dir_all;
+use std::path::PathBuf;
+
 // Third-party imports
 
 use rmpv::Value;
 use siminau_rpc::error::RpcErrorKind;
 use siminau_rpc::message::{Message, MessageType};
+use tempdir::TempDir;
 
 // Local imports
 
 use error::{SasdErrorKind, SasdResult};
 use protocol::{BoxState, Info, Protocol, Request, Response, State, StateKind};
 use protocol::v1;
+
+#[cfg(windows)]
+use protocol::SessionStore;
+
 use rpc;
+use settings::{SettingsBuilder, SettingsHandle, new_settings_handle};
+use state::{SessionState, SessionStateHandle};
 
 
 // ===========================================================================
@@ -42,7 +52,7 @@ struct Test;
 
 
 impl State for Test {
-    fn dispatch(&self, _msg: Message)
+    fn dispatch(&mut self, _state: &mut SessionStateHandle, _msg: Message)
         -> SasdResult<(Option<BoxState>, Option<Message>)>
     {
         Ok((None, None))
@@ -52,6 +62,90 @@ impl State for Test {
     {
         StateKind::Start
     }
+}
+
+
+#[cfg(unix)]
+fn dummy_settings() -> SasdResult<SettingsHandle>
+{
+    let tempdir = TempDir::new("sasd").unwrap();
+    let dirpath = tempdir.into_path().into_os_string().into_string().unwrap();
+
+    // Build settings
+    let config = SettingsBuilder::new()
+        .port(1234)?
+        .unix()
+        .socket_dir(dirpath)?
+        .unix_done()?
+        .build()?;
+    Ok(new_settings_handle(config))
+}
+
+
+#[cfg(windows)]
+fn dummy_settings() -> SasdResult<SettingsHandle>
+{
+    let tempdir = TempDir::new("sasd").unwrap();
+    let dirpath = tempdir.into_path().into_os_string().into_string().unwrap();
+
+    let config = SettingsBuilder::new()
+        .port(1234)?
+        .windows()
+        .token_data_dir(dirpath)?
+        .windows_done()?
+        .build()?;
+    Ok(new_settings_handle(config))
+}
+
+
+#[cfg(unix)]
+pub fn dummy_session_state(state: Box<State>) -> SessionState
+{
+    let settings = dummy_settings().unwrap();
+    SessionState::new(settings, state)
+}
+
+
+#[cfg(windows)]
+pub fn dummy_session_state(state: Box<State>) -> SessionState
+{
+    let settings = dummy_settings().unwrap();
+    let store = SessionStore::default();
+    SessionState::new(store, settings, state)
+}
+
+
+#[cfg(unix)]
+pub fn cleanup_settings(mut state: SessionState)
+{
+    let dirpath = {
+        let config = state.server_settings().read().expect(
+            "failed to read server \
+             settings",
+        );
+        PathBuf::from(&config.unix().socket_dir)
+    };
+    remove_dir_all(dirpath).unwrap();
+}
+
+
+#[cfg(windows)]
+pub fn cleanup_settings(mut state: SessionState)
+{
+    // Drop the open auth file
+    use std::mem;
+    {
+        let store = state.session_store();
+        mem::replace(&mut store.auth_file, None);
+    }
+    let dirpath = {
+        let config = state.server_settings().read().expect(
+            "failed to read server \
+             settings",
+        );
+        PathBuf::from(&config.windows().token_data_dir)
+    };
+    remove_dir_all(dirpath).unwrap();
 }
 
 
