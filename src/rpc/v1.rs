@@ -27,20 +27,17 @@ use siminau_rpc::message::CodeConvert;
 #[derive(Debug, PartialEq, Clone, CodeConvert)]
 pub enum SessionMethod {
     // Request to attach to the agent session. To re-do session auth, no
-    // arguments are sent. To skip session auth, 2 arguments are sent:
-    // 1. Session token
-    // 2. auth token
+    // arguments are sent. To skip session auth, a single arg is sent:
+    // 1. auth token
     //
-    // Response will be a list with 2 items:
-    // 1. Session token
-    // 2. Absolute path to a temporary file that contains an auth token
+    // Response will be a list with a single item:
+    // 1. Absolute path to a temporary file that contains an auth token
     Attach = 4,
 
     // The client will have to read the auth token contained in the file
     // referenced by the second result item of the attach response, and send
-    // this request which has 2 arguments:
-    // 1. Session token
-    // 2. Auth token
+    // this request which has a single argument:
+    // 1. Auth token
     AuthAttach = 5,
 
     // No arguments

@@ -31,17 +31,15 @@ pub mod v1;
 
 
 pub struct SessionStore {
-    pub session_token: String,
     pub auth_token: String,
     pub auth_file: Option<File>,
 }
 
 
 impl SessionStore {
-    pub fn new(session_token: String, auth_token: String) -> Self
+    pub fn new(auth_token: String) -> Self
     {
         Self {
-            session_token: session_token,
             auth_token: auth_token,
             auth_file: None,
         }
@@ -53,7 +51,6 @@ impl Default for SessionStore {
     fn default() -> Self
     {
         Self {
-            session_token: String::with_capacity(64),
             auth_token: String::with_capacity(64),
             auth_file: None,
         }

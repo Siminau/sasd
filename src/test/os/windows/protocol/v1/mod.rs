@@ -293,10 +293,8 @@ mod initsession {
             // an InitSession instance
             // -------------------------------------------------------
             // Create tokens and request message
-            let session_token = "hello".to_owned();
             let auth_token = "world".to_owned();
             let msgargs = vec![
-                Value::from(session_token.clone()),
                 Value::from(auth_token.clone()),
             ];
             let request =
@@ -317,7 +315,6 @@ mod initsession {
             );
             let settings_handle = new_settings_handle(settings);
             let session_store = SessionStore {
-                session_token: session_token,
                 auth_token: auth_token,
                 auth_file: None,
             };
@@ -406,12 +403,10 @@ mod initsession {
             // This is a &Vec<Value>
             let result = response.result().as_array().unwrap();
 
-            assert_eq!(result.len(), 2);
+            assert_eq!(result.len(), 1);
 
-            let session_token = String::from(result[0].as_str().unwrap());
-            let auth_filepath = PathBuf::from(result[1].as_str().unwrap());
+            let auth_filepath = PathBuf::from(result[0].as_str().unwrap());
 
-            assert_eq!(session_token.len(), 64);
             assert!(auth_filepath.exists());
             assert!(auth_filepath.is_file());
 
@@ -429,7 +424,6 @@ mod initsession {
                 String::from_utf8(buf).unwrap()
             };
             assert_eq!(auth_token.len(), 64);
-            assert!(session_token != auth_token);
 
             // --------------------
             // CLEANUP
@@ -508,7 +502,7 @@ mod authsession {
         quickcheck! {
             fn authattach_args_error(numargs: usize) -> TestResult
             {
-                if numargs == 2 {
+                if numargs == 1 {
                     return TestResult::discard()
                 }
 
@@ -516,7 +510,7 @@ mod authsession {
                 // GIVEN
                 // a SessionRequest message and
                 // the message method is AuthAttach and
-                // the message has a number of args != 2 and
+                // the message has a number of args != 1 and
                 // an empty sessionstore and
                 // an InitSession instance
                 // -------------------------------------------------------
@@ -570,7 +564,8 @@ mod authsession {
 
     mod auth_attach {
         use protocol::{State, StateKind};
-        use protocol::v1::{AuthSession, SessionRequest, SessionResponse, V1StateKind};
+        use protocol::v1::{AuthSession, SessionRequest, SessionResponse,
+                           V1StateKind};
         use rmpv::{Utf8String, Value};
         use rpc::v1::{SessionError, SessionMethod};
         use siminau_rpc::message::response::RpcResponse;
@@ -580,85 +575,22 @@ mod authsession {
         use test::protocol::dummy_session_state_nofs;
 
         #[test]
-        fn client_token_nomatch()
-        {
-            // -------------------------------------------------------
-            // GIVEN
-            // a client token and
-            // an auth token and
-            // a SessionRequest message and
-            // the message method is AuthAttach and
-            // a sessionstore containing a non-matching client token and
-            // the sessionstore containing a non-matching auth token and
-            // an InitSession instance
-            // -------------------------------------------------------
-            let client_token = "HELLO".to_owned();
-            let auth_token = "WORLD".to_owned();
-            let request =
-                SessionRequest::new(
-                    42,
-                    SessionMethod::AuthAttach,
-                    vec![
-                        Value::String(Utf8String::from(&client_token[..])),
-                        Value::String(Utf8String::from(&auth_token[..])),
-                    ],
-                );
-
-            // Create state
-            let mut auth = AuthSession::new();
-            let dummy = AuthSession::new();
-
-            // Create session state
-            let mut session_state = dummy_session_state_nofs(Box::new(dummy));
-
-            // Assign tokens to session_state
-            session_state.session_store().session_token = "NOT".to_owned();
-            session_state.session_store().auth_token = "CORRECT".to_owned();
-
-            // ------------------------------------------------------------
-            // WHEN
-            // AuthSession::dispatch() is called with the sessionstore and
-            // message
-            // ------------------------------------------------------------
-            let (_, msg) = {
-                let mut handle = session_state.handle();
-                auth.dispatch(&mut handle, request.into()).unwrap()
-            };
-
-            // ----------------------------------------------------
-            // THEN
-            // An error response is returned and
-            // the response's error code is InvalidAttach and
-            // the response's result is the str "client token doesn't match"
-            // ----------------------------------------------------
-            let resp = SessionResponse::from(msg.unwrap()).unwrap();
-            assert_eq!(resp.error_code(), SessionError::InvalidAttach);
-
-            let result = resp.result().as_str().unwrap();
-            assert_eq!(result, "client token doesn't match");
-        }
-
-        #[test]
         fn auth_token_nomatch()
         {
             // -------------------------------------------------------
             // GIVEN
-            // a client token and
             // an auth token and
             // a SessionRequest message and
             // the message method is AuthAttach and
-            // a sessionstore containing a matching client token
-            // the sessionstore containing a non-matching auth token and
+            // a sessionstore containing a non-matching auth token and
             // an InitSession instance
             // -------------------------------------------------------
-            let client_token = "HELLO".to_owned();
-            let auth_token = "WORLD".to_owned();
+            let auth_token = "HELLO".to_owned();
             let request =
                 SessionRequest::new(
                     42,
                     SessionMethod::AuthAttach,
                     vec![
-                        Value::String(Utf8String::from(&client_token[..])),
                         Value::String(Utf8String::from(&auth_token[..])),
                     ],
                 );
@@ -671,7 +603,6 @@ mod authsession {
             let mut session_state = dummy_session_state_nofs(Box::new(dummy));
 
             // Assign tokens to session_state
-            session_state.session_store().session_token = "HELLO".to_owned();
             session_state.session_store().auth_token = "NOTCORRECT".to_owned();
 
             // ------------------------------------------------------------
@@ -698,25 +629,22 @@ mod authsession {
         }
 
         #[test]
-        fn tokens_match()
+        fn auth_token_match()
         {
             // -------------------------------------------------------
             // GIVEN
-            // a client token and
             // an auth token and
             // a SessionRequest message and
             // the message method is AuthAttach and
-            // a sessionstore containing matching client and auth tokens and
+            // a sessionstore containing a matching auth token and
             // an InitSession instance
             // -------------------------------------------------------
-            let client_token = "HELLO".to_owned();
-            let auth_token = "WORLD".to_owned();
+            let auth_token = "HELLO".to_owned();
             let request =
                 SessionRequest::new(
                     42,
                     SessionMethod::AuthAttach,
                     vec![
-                        Value::String(Utf8String::from(&client_token[..])),
                         Value::String(Utf8String::from(&auth_token[..])),
                     ],
                 );
@@ -729,7 +657,6 @@ mod authsession {
             let mut session_state = dummy_session_state_nofs(Box::new(dummy));
 
             // Assign tokens to session_state
-            session_state.session_store().session_token = client_token;
             session_state.session_store().auth_token = auth_token;
 
             // ------------------------------------------------------------

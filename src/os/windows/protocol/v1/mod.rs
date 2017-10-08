@@ -85,7 +85,7 @@ impl SessionState for InitSession {
             rpc1::SessionMethod::Attach => {
                 let numargs = req.message_args().len();
                 match numargs {
-                    0 | 2 => Ok(req),
+                    0 | 1 => Ok(req),
                     _ => Err(SasdErrorKind::InvalidMessage.into()),
                 }
             }
@@ -138,19 +138,8 @@ impl InitSession {
         f.seek(SeekFrom::Start(0)).expect("tmp file seek 0 failed");
     }
 
-    fn store_tokens(
-        &self, session_store: &mut SessionStore, client_token: &str,
-        auth_token: &str
-    )
-    {
-        session_store.session_token.push_str(client_token);
-        session_store.auth_token.push_str(auth_token);
-    }
-
-    fn make_response(
-        &self, skip_auth: bool, req: SessionRequest, filepath: Option<&Path>,
-        client_token: Option<&str>
-    ) -> SasdResult<SessionResponse>
+    fn make_response(&self, skip_auth: bool, req: SessionRequest, filepath: Option<&Path>)
+        -> SasdResult<SessionResponse>
     {
         let result = if !skip_auth {
             // Create SessionResponse w/ session token and file location as args
@@ -164,10 +153,7 @@ impl InitSession {
                         .map_err(|_| "Unable to convert filepath to string")?;
                 Utf8String::from(filepath)
             };
-            let client_token = Utf8String::from(client_token.unwrap());
-            Value::Array(
-                vec![Value::String(client_token), Value::String(filepath)],
-            )
+            Value::Array(vec![Value::String(filepath)])
         } else {
             Value::Nil
         };
@@ -186,14 +172,9 @@ impl InitSession {
     fn attach(&mut self, state: &mut SessionStateHandle, req: SessionRequest)
         -> SasdResult<SessionResponse>
     {
-        // Create tokens and store them in the session store
-        let client_token = self.make_random_hexstr(32);
+        // Create auth token and store it in the session store
         let auth_token = self.make_random_hexstr(32);
-        self.store_tokens(
-            state.session_store(),
-            &client_token[..],
-            &auth_token[..],
-        );
+        state.session_store().auth_token.push_str(&auth_token[..]);
 
         // Create custom name
         let mut filepath = {
@@ -215,13 +196,8 @@ impl InitSession {
         // Store the temporary file in the session store
         state.session_store().auth_file = Some(tmpfile);
 
-        // Create SessionResponse w/ session token and file location as args
-        self.make_response(
-            false,
-            req,
-            Some(filepath.as_path()),
-            Some(&client_token[..]),
-        )
+        // Create SessionResponse w/ file location as arg
+        self.make_response(false, req, Some(filepath.as_path()))
     }
 
     // Used by dispatch() method to check if can skip calling the attach method
@@ -233,18 +209,12 @@ impl InitSession {
             return false;
         }
 
-        let session_token = match args[0].as_str() {
+        let auth_token = match args[0].as_str() {
             Some(s) => String::from(s),
             None => return false,
         };
 
-        let auth_token = match args[1].as_str() {
-            Some(s) => String::from(s),
-            None => return false,
-        };
-
-        &session_token == &session_store.session_token &&
-            &auth_token == &session_store.auth_token
+        &auth_token == &session_store.auth_token
     }
 }
 
@@ -258,7 +228,7 @@ impl State for InitSession {
                 let req = self.check_msg(msg)?;
                 let (resp, next): (SessionResponse, Box<State>) =
                     if self.can_skip_auth(state.session_store(), &req) {
-                        let resp = self.make_response(true, req, None, None)?;
+                        let resp = self.make_response(true, req, None)?;
                         (resp, Box::new(Session::new()))
                     } else {
                         let resp = self.attach(state, req)?;
@@ -285,8 +255,7 @@ impl State for InitSession {
 // ===========================================================================
 
 
-// TODO: add private members to hold client session token and auth token
-// Tokens should use protected memory
+// TODO: Tokens should use protected memory
 pub struct AuthSession;
 
 
@@ -296,7 +265,7 @@ impl SessionState for AuthSession {
     {
         match req.message_method() {
             rpc1::SessionMethod::AuthAttach => {
-                if req.message_args().len() != 2 {
+                if req.message_args().len() != 1 {
                     Err(SasdErrorKind::InvalidMessage.into())
                 } else {
                     Ok(req)
@@ -318,23 +287,15 @@ impl AuthSession {
         -> SasdResult<(Option<Session>, Option<Message>)>
     {
         // Get expected token str slices
-        let (client_token, auth_token) = {
-            let session_store = state.session_store();
-            let client_token = &session_store.session_token[..];
-            let auth_token = &session_store.auth_token[..];
-            (client_token, auth_token)
-        };
+        let auth_token = &state.session_store().auth_token[..];
 
-        // Get client and auth tokens from request message
+        // Get auth token from request message
         let args = req.message_args();
-        let req_client_token = args[0].as_str().unwrap();
-        let req_auth_token = args[1].as_str().unwrap();
+        let req_auth_token = args[0].as_str().unwrap();
 
-        // Compare tokens
+        // Compare token
         let errmsg = {
-            if client_token != req_client_token {
-                Some("client token doesn't match")
-            } else if auth_token != req_auth_token {
+            if auth_token != req_auth_token {
                 Some("auth token doesn't match")
             } else {
                 None
