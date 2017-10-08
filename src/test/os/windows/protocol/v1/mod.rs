@@ -443,6 +443,332 @@ mod initsession {
 }
 
 
+mod authsession {
+
+    mod check_msg_method {
+        use error::SasdErrorKind;
+        use protocol::State;
+        use protocol::v1::{AuthSession, SessionRequest};
+        use quickcheck::TestResult;
+        use rmpv::Value;
+        use rpc::v1::SessionMethod;
+
+        // Helpers
+
+        use test::protocol::dummy_session_state_nofs;
+
+        #[test]
+        fn non_authattach_msg_error()
+        {
+            // -------------------------------------------------------
+            // GIVEN
+            // a SessionRequest message and
+            // the message method is not AuthAttach and
+            // an empty sessionstore and
+            // an InitSession instance
+            // -------------------------------------------------------
+            let request =
+                SessionRequest::new(42, SessionMethod::Attach, vec![]);
+
+            // Create state
+            let mut auth = AuthSession::new();
+
+            // Create session state
+            let dummy = AuthSession::new();
+
+            let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+
+            // ------------------------------------------------------------
+            // WHEN
+            // AuthSession::dispatch() is called with the sessionstore and
+            // message
+            // ------------------------------------------------------------
+            let result = {
+                let mut handle = session_state.handle();
+                auth.dispatch(&mut handle, request.into())
+            };
+
+            // ----------------------------------------------------
+            // THEN
+            // An error is returned and
+            // the error is UnexpectedMessage
+            // ----------------------------------------------------
+            let testval = match result {
+                Ok(_) => false,
+                Err(e) => {
+                    match e.kind() {
+                        &SasdErrorKind::UnexpectedMessage => true,
+                        _ => false,
+                    }
+                }
+            };
+            assert!(testval);
+        }
+
+        quickcheck! {
+            fn authattach_args_error(numargs: usize) -> TestResult
+            {
+                if numargs == 2 {
+                    return TestResult::discard()
+                }
+
+                // -------------------------------------------------------
+                // GIVEN
+                // a SessionRequest message and
+                // the message method is AuthAttach and
+                // the message has a number of args != 2 and
+                // an empty sessionstore and
+                // an InitSession instance
+                // -------------------------------------------------------
+                // Setup args
+                let mut args = Vec::new();
+                for i in 0..numargs {
+                    args.push(Value::from(i));
+                }
+
+                // Create request message
+                let request =
+                    SessionRequest::new(42, SessionMethod::AuthAttach, args);
+
+                // Create state
+                let mut auth = AuthSession::new();
+
+                // Create session state
+                let dummy = AuthSession::new();
+
+                let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+
+                // ------------------------------------------------------------
+                // WHEN
+                // AuthSession::dispatch() is called with the sessionstore and
+                // message
+                // ------------------------------------------------------------
+                let result = {
+                    let mut handle = session_state.handle();
+                    auth.dispatch(&mut handle, request.into())
+                };
+
+                // ----------------------------------------------------
+                // THEN
+                // An error is returned and
+                // the error is InvalidMessage
+                // ----------------------------------------------------
+                let testval = match result {
+                    Ok(_) => false,
+                    Err(e) => {
+                        match e.kind() {
+                            &SasdErrorKind::InvalidMessage => true,
+                            _ => false,
+                        }
+                    }
+                };
+                TestResult::from_bool(testval)
+            }
+        }
+
+    }
+
+    mod auth_attach {
+        use protocol::{State, StateKind};
+        use protocol::v1::{AuthSession, SessionRequest, SessionResponse, V1StateKind};
+        use rmpv::{Utf8String, Value};
+        use rpc::v1::{SessionError, SessionMethod};
+        use siminau_rpc::message::response::RpcResponse;
+
+        // Helpers
+
+        use test::protocol::dummy_session_state_nofs;
+
+        #[test]
+        fn client_token_nomatch()
+        {
+            // -------------------------------------------------------
+            // GIVEN
+            // a client token and
+            // an auth token and
+            // a SessionRequest message and
+            // the message method is AuthAttach and
+            // a sessionstore containing a non-matching client token and
+            // the sessionstore containing a non-matching auth token and
+            // an InitSession instance
+            // -------------------------------------------------------
+            let client_token = "HELLO".to_owned();
+            let auth_token = "WORLD".to_owned();
+            let request =
+                SessionRequest::new(
+                    42,
+                    SessionMethod::AuthAttach,
+                    vec![
+                        Value::String(Utf8String::from(&client_token[..])),
+                        Value::String(Utf8String::from(&auth_token[..])),
+                    ],
+                );
+
+            // Create state
+            let mut auth = AuthSession::new();
+            let dummy = AuthSession::new();
+
+            // Create session state
+            let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+
+            // Assign tokens to session_state
+            session_state.session_store().session_token = "NOT".to_owned();
+            session_state.session_store().auth_token = "CORRECT".to_owned();
+
+            // ------------------------------------------------------------
+            // WHEN
+            // AuthSession::dispatch() is called with the sessionstore and
+            // message
+            // ------------------------------------------------------------
+            let (_, msg) = {
+                let mut handle = session_state.handle();
+                auth.dispatch(&mut handle, request.into()).unwrap()
+            };
+
+            // ----------------------------------------------------
+            // THEN
+            // An error response is returned and
+            // the response's error code is InvalidAttach and
+            // the response's result is the str "client token doesn't match"
+            // ----------------------------------------------------
+            let resp = SessionResponse::from(msg.unwrap()).unwrap();
+            assert_eq!(resp.error_code(), SessionError::InvalidAttach);
+
+            let result = resp.result().as_str().unwrap();
+            assert_eq!(result, "client token doesn't match");
+        }
+
+        #[test]
+        fn auth_token_nomatch()
+        {
+            // -------------------------------------------------------
+            // GIVEN
+            // a client token and
+            // an auth token and
+            // a SessionRequest message and
+            // the message method is AuthAttach and
+            // a sessionstore containing a matching client token
+            // the sessionstore containing a non-matching auth token and
+            // an InitSession instance
+            // -------------------------------------------------------
+            let client_token = "HELLO".to_owned();
+            let auth_token = "WORLD".to_owned();
+            let request =
+                SessionRequest::new(
+                    42,
+                    SessionMethod::AuthAttach,
+                    vec![
+                        Value::String(Utf8String::from(&client_token[..])),
+                        Value::String(Utf8String::from(&auth_token[..])),
+                    ],
+                );
+
+            // Create state
+            let mut auth = AuthSession::new();
+            let dummy = AuthSession::new();
+
+            // Create session state
+            let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+
+            // Assign tokens to session_state
+            session_state.session_store().session_token = "HELLO".to_owned();
+            session_state.session_store().auth_token = "NOTCORRECT".to_owned();
+
+            // ------------------------------------------------------------
+            // WHEN
+            // AuthSession::dispatch() is called with the sessionstore and
+            // message
+            // ------------------------------------------------------------
+            let (_, msg) = {
+                let mut handle = session_state.handle();
+                auth.dispatch(&mut handle, request.into()).unwrap()
+            };
+
+            // ----------------------------------------------------
+            // THEN
+            // An error response is returned and
+            // the response's error code is InvalidAttach and
+            // the response's result is the str "auth token doesn't match"
+            // ----------------------------------------------------
+            let resp = SessionResponse::from(msg.unwrap()).unwrap();
+            assert_eq!(resp.error_code(), SessionError::InvalidAttach);
+
+            let result = resp.result().as_str().unwrap();
+            assert_eq!(result, "auth token doesn't match");
+        }
+
+        #[test]
+        fn tokens_match()
+        {
+            // -------------------------------------------------------
+            // GIVEN
+            // a client token and
+            // an auth token and
+            // a SessionRequest message and
+            // the message method is AuthAttach and
+            // a sessionstore containing matching client and auth tokens and
+            // an InitSession instance
+            // -------------------------------------------------------
+            let client_token = "HELLO".to_owned();
+            let auth_token = "WORLD".to_owned();
+            let request =
+                SessionRequest::new(
+                    42,
+                    SessionMethod::AuthAttach,
+                    vec![
+                        Value::String(Utf8String::from(&client_token[..])),
+                        Value::String(Utf8String::from(&auth_token[..])),
+                    ],
+                );
+
+            // Create state
+            let mut auth = AuthSession::new();
+            let dummy = AuthSession::new();
+
+            // Create session state
+            let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+
+            // Assign tokens to session_state
+            session_state.session_store().session_token = client_token;
+            session_state.session_store().auth_token = auth_token;
+
+            // ------------------------------------------------------------
+            // WHEN
+            // AuthSession::dispatch() is called with the sessionstore and
+            // message
+            // ------------------------------------------------------------
+            let (state, msg) = {
+                let mut handle = session_state.handle();
+                auth.dispatch(&mut handle, request.into()).unwrap()
+            };
+
+            // ----------------------------------------------------
+            // THEN
+            // A non-error response is returned and
+            // the response's error code is Nil and
+            // the response's result is Nil
+            // ----------------------------------------------------
+            // Check response
+            let resp = SessionResponse::from(msg.unwrap()).unwrap();
+            assert_eq!(resp.error_code(), SessionError::Nil);
+            assert!(resp.result().is_nil());
+
+            // Check state
+            let testval = match state {
+                Some(s) => {
+                    match s.kind() {
+                        StateKind::V1(V1StateKind::Session) => true,
+                        _ => false,
+                    }
+                }
+                None => false,
+            };
+            assert!(testval);
+        }
+    }
+}
+
+
 // ===========================================================================
 //
 // ===========================================================================

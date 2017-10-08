@@ -19,7 +19,7 @@ use siminau_rpc::message::response::ResponseMessage;
 // Local imports
 
 #[cfg(windows)]
-pub use os::windows::protocol::v1::InitSession;
+pub use os::windows::protocol::v1::{AuthSession, InitSession};
 
 use error::SasdResult;
 use protocol::{State, StateKind};

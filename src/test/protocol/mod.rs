@@ -39,7 +39,9 @@ use protocol::v1;
 use protocol::SessionStore;
 
 use rpc;
-use settings::{SettingsBuilder, SettingsHandle, new_settings_handle};
+use settings::{SettingsBuilder, SettingsHandle, WindowsSection,
+               new_settings_handle};
+use settings::test::helper::new_settings;
 use state::{SessionState, SessionStateHandle};
 
 
@@ -105,6 +107,26 @@ pub fn dummy_session_state(state: Box<State>) -> SessionState
     SessionState::new(settings, state)
 }
 
+
+#[cfg(windows)]
+pub fn dummy_session_state_nofs(state: Box<State>) -> SessionState
+{
+    let session_token = "hello".to_owned();
+    let auth_token = "world".to_owned();
+    let settings =
+        new_settings(
+            1234,
+            None,
+            WindowsSection { token_data_dir: PathBuf::from("/does/not/exist") },
+        );
+    let settings_handle = new_settings_handle(settings);
+    let session_store = SessionStore {
+        session_token: session_token,
+        auth_token: auth_token,
+        auth_file: None,
+    };
+    SessionState::new(session_store, settings_handle, state)
+}
 
 #[cfg(windows)]
 pub fn dummy_session_state(state: Box<State>) -> SessionState

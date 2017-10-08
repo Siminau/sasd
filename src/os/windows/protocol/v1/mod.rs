@@ -295,7 +295,13 @@ impl SessionState for AuthSession {
         -> SasdResult<SessionRequest>
     {
         match req.message_method() {
-            rpc1::SessionMethod::AuthAttach => Ok(req),
+            rpc1::SessionMethod::AuthAttach => {
+                if req.message_args().len() != 2 {
+                    Err(SasdErrorKind::InvalidMessage.into())
+                } else {
+                    Ok(req)
+                }
+            }
             _ => Err(SasdErrorKind::UnexpectedMessage.into()),
         }
     }
@@ -303,25 +309,73 @@ impl SessionState for AuthSession {
 
 
 impl AuthSession {
-    fn new() -> AuthSession
+    pub fn new() -> AuthSession
     {
         AuthSession
     }
 
-    fn auth_attach(_req: SessionRequest)
-        -> SasdResult<(Session, Option<SessionResponse>)>
+    fn auth_attach(&self, state: &mut SessionStateHandle, req: SessionRequest)
+        -> SasdResult<(Option<Session>, Option<Message>)>
     {
-        unimplemented!()
+        // Get expected token str slices
+        let (client_token, auth_token) = {
+            let session_store = state.session_store();
+            let client_token = &session_store.session_token[..];
+            let auth_token = &session_store.auth_token[..];
+            (client_token, auth_token)
+        };
+
+        // Get client and auth tokens from request message
+        let args = req.message_args();
+        let req_client_token = args[0].as_str().unwrap();
+        let req_auth_token = args[1].as_str().unwrap();
+
+        // Compare tokens
+        let errmsg = {
+            if client_token != req_client_token {
+                Some("client token doesn't match")
+            } else if auth_token != req_auth_token {
+                Some("auth token doesn't match")
+            } else {
+                None
+            }
+        };
+
+        // Values needed to create response
+        let (err, result, state) = match errmsg {
+            Some(msg) => (
+                rpc1::SessionError::InvalidAttach,
+                Value::String(Utf8String::from(msg)),
+                None,
+            ),
+            None => (rpc1::SessionError::Nil, Value::Nil, Some(Session::new())),
+        };
+
+        // Create response
+        let resp = SessionResponse::new(req.message_id(), err, result);
+
+        Ok((state, Some(resp.into())))
     }
 }
 
 
 impl State for AuthSession {
-    fn dispatch(&mut self, _state: &mut SessionStateHandle, msg: Message)
+    fn dispatch(&mut self, state: &mut SessionStateHandle, msg: Message)
         -> SasdResult<(Option<Box<State>>, Option<Message>)>
     {
         match msg.message_type() {
-            MessageType::Request => unimplemented!(),
+            MessageType::Request => {
+                let req = self.check_msg(msg)?;
+                let (newstate, resp) = self.auth_attach(state, req)?;
+                let ret = match newstate {
+                    Some(s) => {
+                        let newstate: Box<State> = Box::new(s);
+                        (Some(newstate), resp)
+                    }
+                    None => (None, resp),
+                };
+                Ok(ret)
+            }
             MessageType::Notification => {
                 bail!(SasdErrorKind::UnexpectedMessage)
             }
