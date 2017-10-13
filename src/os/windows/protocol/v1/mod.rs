@@ -28,8 +28,9 @@ use winapi;
 // Local imports
 
 use error::{SasdErrorKind, SasdResult, SasdResultExt};
-use protocol::{State, StateKind};
-use protocol::v1::{Session, SessionRequest, SessionResponse, V1StateKind};
+use protocol::{State, StateValue};
+use protocol::v1::{Session, SessionRequest, SessionResponse,
+                   StateValue as V1StateValue};
 use rpc::v1 as rpc1;
 
 // Grab SessionStore from parent module
@@ -74,7 +75,17 @@ pub trait SessionState {
 
 // TODO: add private members to hold client session token and auth token
 // Tokens should use protected memory
+#[derive(Debug)]
 pub struct InitSession;
+
+
+// Implement From and Into traits
+impl From<InitSession> for StateValue {
+    fn from(s: InitSession) -> StateValue
+    {
+        StateValue::V1(V1StateValue::InitSession(s))
+    }
+}
 
 
 impl SessionState for InitSession {
@@ -99,6 +110,18 @@ impl InitSession {
     pub fn new() -> InitSession
     {
         InitSession
+    }
+
+    pub fn from_value(v: StateValue) -> SasdResult<Self>
+    {
+        match v {
+            StateValue::V1(V1StateValue::InitSession(s)) => Ok(s),
+            _ => {
+                let expected = format!("StateValue::V1(InitSession)");
+                let value = format!("StateValue::{:?}", v);
+                Err(SasdErrorKind::InvalidStateValue(expected, value).into())
+            }
+        }
     }
 
     fn make_random_hexstr(&self, len: usize) -> String
@@ -221,18 +244,26 @@ impl InitSession {
 
 impl State for InitSession {
     fn dispatch(&mut self, state: &mut SessionStateHandle, msg: Message)
-        -> SasdResult<(Option<Box<State>>, Option<Message>)>
+        -> SasdResult<(Option<StateValue>, Option<Message>)>
     {
         match msg.message_type() {
             MessageType::Request => {
                 let req = self.check_msg(msg)?;
-                let (resp, next): (SessionResponse, Box<State>) =
+                let (resp, next): (SessionResponse, StateValue) =
                     if self.can_skip_auth(state.session_store(), &req) {
                         let resp = self.make_response(true, req, None)?;
-                        (resp, Box::new(Session::new()))
+                        (
+                            resp,
+                            StateValue::V1(V1StateValue::Session(Session::new())),
+                        )
                     } else {
                         let resp = self.attach(state, req)?;
-                        (resp, Box::new(AuthSession::new()))
+                        (
+                            resp,
+                            StateValue::V1(
+                                V1StateValue::AuthSession(AuthSession::new()),
+                            ),
+                        )
                     };
                 Ok((Some(next), Some(resp.into())))
             }
@@ -241,11 +272,6 @@ impl State for InitSession {
             }
             MessageType::Response => unreachable!(),
         }
-    }
-
-    fn kind(&self) -> StateKind
-    {
-        StateKind::V1(V1StateKind::InitSession)
     }
 }
 
@@ -256,7 +282,17 @@ impl State for InitSession {
 
 
 // TODO: Tokens should use protected memory
+#[derive(Debug)]
 pub struct AuthSession;
+
+
+// Implement From and Into traits
+impl From<AuthSession> for StateValue {
+    fn from(s: AuthSession) -> StateValue
+    {
+        StateValue::V1(V1StateValue::AuthSession(s))
+    }
+}
 
 
 impl SessionState for AuthSession {
@@ -322,17 +358,14 @@ impl AuthSession {
 
 impl State for AuthSession {
     fn dispatch(&mut self, state: &mut SessionStateHandle, msg: Message)
-        -> SasdResult<(Option<Box<State>>, Option<Message>)>
+        -> SasdResult<(Option<StateValue>, Option<Message>)>
     {
         match msg.message_type() {
             MessageType::Request => {
                 let req = self.check_msg(msg)?;
                 let (newstate, resp) = self.auth_attach(state, req)?;
                 let ret = match newstate {
-                    Some(s) => {
-                        let newstate: Box<State> = Box::new(s);
-                        (Some(newstate), resp)
-                    }
+                    Some(s) => (Some(s.into()), resp),
                     None => (None, resp),
                 };
                 Ok(ret)
@@ -342,11 +375,6 @@ impl State for AuthSession {
             }
             MessageType::Response => unreachable!(),
         }
-    }
-
-    fn kind(&self) -> StateKind
-    {
-        StateKind::V1(V1StateKind::AuthSession)
     }
 }
 

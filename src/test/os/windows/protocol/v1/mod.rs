@@ -227,40 +227,86 @@ mod sessionstate {
 
 mod initsession {
 
-    mod kind {
-        use protocol::{State, StateKind};
-        use protocol::v1::{InitSession, V1StateKind};
+    mod from_value {
+        use error::SasdErrorKind;
+        use protocol::StateValue;
+        use protocol::v1::{InitSession, Session, StateValue as V1StateValue};
 
         #[test]
         fn is_initsession()
         {
-            let expected = StateKind::V1(V1StateKind::InitSession);
 
             // ------------------------
             // GIVEN
-            // an InitSession instance
+            // a StateValue::V1(InitSession) instance
             // ------------------------
-            let init = InitSession::new();
+            let value =
+                StateValue::V1(V1StateValue::InitSession(InitSession::new()));
 
             // -------------------------------
             // WHEN
-            // InitSession::kind() is called
+            // InitSession::from_value() is called with the StateValue value
             // -------------------------------
-            let result = init.kind();
+            let result = InitSession::from_value(value);
 
             // --------------------------------------------------
             // THEN
-            // the V1StateKind::InitSession variant is returned
+            // the value wrapped in the StateValue variant is returned
             // --------------------------------------------------
-            assert_eq!(result, expected);
+            let testval = match result {
+                Ok(_) => true,
+                _ => false,
+            };
+            assert!(testval);
+        }
+
+        #[test]
+        fn not_initsession()
+        {
+
+            // ------------------------
+            // GIVEN
+            // a StateValue::V1(Session) instance
+            // ------------------------
+            let value = StateValue::V1(V1StateValue::Session(Session::new()));
+
+            // -------------------------------
+            // WHEN
+            // InitSession::from_value() is called with the StateValue value
+            // -------------------------------
+            let result = InitSession::from_value(value);
+
+            // --------------------------------------------------
+            // THEN
+            // a SasdErrorKind::InvalidStateValue error is returned
+            // --------------------------------------------------
+            let testval = match result {
+                Err(e) => {
+                    match e.kind() {
+                        &SasdErrorKind::InvalidStateValue(_, _) => {
+                            let expected = "Invalid StateValue: expected \
+                                            StateValue::V1(InitSession), got \
+                                            StateValue::V1(Session(Session)) \
+                                            instead"
+                                .to_owned();
+                            assert_eq!(e.to_string(), expected);
+                            true
+                            // e.to_string() == expected
+                        }
+                        _ => false,
+                    }
+                }
+                _ => false,
+            };
+            assert!(testval);
         }
     }
 
     mod can_skip_auth {
         use os::windows::protocol::SessionStore;
-        use protocol::{State, StateKind};
+        use protocol::{State, StateValue};
         use protocol::v1::{InitSession, SessionRequest, SessionResponse,
-                           V1StateKind};
+                           StateValue as V1StateValue};
         use rmpv::Value;
         use rpc::v1::{SessionError, SessionMethod};
         use siminau_rpc::message::response::RpcResponse;
@@ -294,9 +340,7 @@ mod initsession {
             // -------------------------------------------------------
             // Create tokens and request message
             let auth_token = "world".to_owned();
-            let msgargs = vec![
-                Value::from(auth_token.clone()),
-            ];
+            let msgargs = vec![Value::from(auth_token.clone())];
             let request =
                 SessionRequest::new(42, SessionMethod::Attach, msgargs);
 
@@ -304,7 +348,8 @@ mod initsession {
             let mut init = InitSession::new();
 
             // Create session state
-            let dummy = InitSession::new();
+            let dummy =
+                StateValue::V1(V1StateValue::InitSession(InitSession::new()));
 
             let settings = new_settings(
                 1234,
@@ -318,11 +363,8 @@ mod initsession {
                 auth_token: auth_token,
                 auth_file: None,
             };
-            let mut session_state = SessionState::new(
-                session_store,
-                settings_handle,
-                Box::new(dummy),
-            );
+            let mut session_state =
+                SessionState::new(session_store, settings_handle, dummy);
             let mut handle = session_state.handle();
 
             // ------------------------------------------------------------
@@ -345,7 +387,8 @@ mod initsession {
             // ----------------------------------------------------
             let response = SessionResponse::from(msg).unwrap();
 
-            assert_eq!(state.kind(), StateKind::V1(V1StateKind::Session));
+            assert!(state.is_v1());
+            assert!(state.as_v1().unwrap().is_session());
             assert_eq!(response.error_code(), SessionError::Nil);
             assert_eq!(response.result(), &Value::Nil);
         }
@@ -369,9 +412,10 @@ mod initsession {
             let mut init = InitSession::new();
 
             // Create session state
-            let dummy = InitSession::new();
+            let dummy =
+                StateValue::V1(V1StateValue::InitSession(InitSession::new()));
 
-            let mut session_state = dummy_session_state(Box::new(dummy));
+            let mut session_state = dummy_session_state(dummy);
 
             // ------------------------------------------------------------
             // WHEN
@@ -391,13 +435,14 @@ mod initsession {
             // --------------------------------------------------------
             // THEN
             // A (State, SessionResponse) tuple is returned and
-            // the state is V1StateKind::AuthSession and
+            // the state is V1StateValue::AuthSession and
             // the response has Nil for its error and
             // the response has session and auth tokens for its result
             // --------------------------------------------------------
             let response = SessionResponse::from(msg).unwrap();
 
-            assert_eq!(state.kind(), StateKind::V1(V1StateKind::AuthSession));
+            assert!(state.is_v1());
+            assert!(state.as_v1().unwrap().is_authsession());
             assert_eq!(response.error_code(), SessionError::Nil);
 
             // This is a &Vec<Value>
@@ -441,8 +486,9 @@ mod authsession {
 
     mod check_msg_method {
         use error::SasdErrorKind;
-        use protocol::State;
-        use protocol::v1::{AuthSession, SessionRequest};
+        use protocol::{State, StateValue};
+        use protocol::v1::{AuthSession, SessionRequest,
+                           StateValue as V1StateValue};
         use quickcheck::TestResult;
         use rmpv::Value;
         use rpc::v1::SessionMethod;
@@ -468,9 +514,10 @@ mod authsession {
             let mut auth = AuthSession::new();
 
             // Create session state
-            let dummy = AuthSession::new();
+            let dummy =
+                StateValue::V1(V1StateValue::AuthSession(AuthSession::new()));
 
-            let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+            let mut session_state = dummy_session_state_nofs(dummy);
 
             // ------------------------------------------------------------
             // WHEN
@@ -528,9 +575,10 @@ mod authsession {
                 let mut auth = AuthSession::new();
 
                 // Create session state
-                let dummy = AuthSession::new();
+                let dummy =
+                    StateValue::V1(V1StateValue::AuthSession(AuthSession::new()));
 
-                let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+                let mut session_state = dummy_session_state_nofs(dummy);
 
                 // ------------------------------------------------------------
                 // WHEN
@@ -563,9 +611,9 @@ mod authsession {
     }
 
     mod auth_attach {
-        use protocol::{State, StateKind};
+        use protocol::{State, StateValue};
         use protocol::v1::{AuthSession, SessionRequest, SessionResponse,
-                           V1StateKind};
+                           StateValue as V1StateValue};
         use rmpv::{Utf8String, Value};
         use rpc::v1::{SessionError, SessionMethod};
         use siminau_rpc::message::response::RpcResponse;
@@ -590,17 +638,16 @@ mod authsession {
                 SessionRequest::new(
                     42,
                     SessionMethod::AuthAttach,
-                    vec![
-                        Value::String(Utf8String::from(&auth_token[..])),
-                    ],
+                    vec![Value::String(Utf8String::from(&auth_token[..]))],
                 );
 
             // Create state
             let mut auth = AuthSession::new();
-            let dummy = AuthSession::new();
+            let dummy =
+                StateValue::V1(V1StateValue::AuthSession(AuthSession::new()));
 
             // Create session state
-            let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+            let mut session_state = dummy_session_state_nofs(dummy);
 
             // Assign tokens to session_state
             session_state.session_store().auth_token = "NOTCORRECT".to_owned();
@@ -644,17 +691,16 @@ mod authsession {
                 SessionRequest::new(
                     42,
                     SessionMethod::AuthAttach,
-                    vec![
-                        Value::String(Utf8String::from(&auth_token[..])),
-                    ],
+                    vec![Value::String(Utf8String::from(&auth_token[..]))],
                 );
 
             // Create state
             let mut auth = AuthSession::new();
-            let dummy = AuthSession::new();
+            let dummy =
+                StateValue::V1(V1StateValue::AuthSession(AuthSession::new()));
 
             // Create session state
-            let mut session_state = dummy_session_state_nofs(Box::new(dummy));
+            let mut session_state = dummy_session_state_nofs(dummy);
 
             // Assign tokens to session_state
             session_state.session_store().auth_token = auth_token;
@@ -682,13 +728,8 @@ mod authsession {
 
             // Check state
             let testval = match state {
-                Some(s) => {
-                    match s.kind() {
-                        StateKind::V1(V1StateKind::Session) => true,
-                        _ => false,
-                    }
-                }
-                None => false,
+                Some(StateValue::V1(ref v1)) => v1.is_session(),
+                _ => false,
             };
             assert!(testval);
         }

@@ -49,10 +49,70 @@ pub mod v1;
 // ===========================================================================
 
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum StateKind {
-    Start,
-    V1(v1::V1StateKind),
+#[derive(Debug)]
+pub enum StateValue {
+    Start(Start),
+    V1(v1::StateValue),
+}
+
+
+impl StateValue {
+    // --------------------
+    // is methods
+    // --------------------
+    pub fn is_v1(&self) -> bool
+    {
+        match self {
+            &StateValue::V1(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_start(&self) -> bool
+    {
+        match self {
+            &StateValue::Start(_) => true,
+            _ => false,
+        }
+    }
+
+    // --------------------
+    // as methods
+    // --------------------
+    pub fn as_v1(&self) -> Option<&v1::StateValue>
+    {
+        match self {
+            &StateValue::V1(ref v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn as_start(&self) -> Option<&Start>
+    {
+        match self {
+            &StateValue::Start(ref s) => Some(s),
+            _ => None,
+        }
+    }
+
+    // --------------------
+    // to methods
+    // --------------------
+    pub fn to_v1(self) -> Option<v1::StateValue>
+    {
+        match self {
+            StateValue::V1(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn to_start(self) -> Option<Start>
+    {
+        match self {
+            StateValue::Start(s) => Some(s),
+            _ => None,
+        }
+    }
 }
 
 
@@ -86,28 +146,29 @@ pub type Info = NotificationMessage<rpc::Notice>;
 // ===========================================================================
 
 
-pub type BoxState = Box<State>;
-
-
 #[cfg(unix)]
-fn first_state(rpcver: Protocol) -> BoxState
+fn first_state(rpcver: Protocol) -> StateValue
 {
     match rpcver {
-        Protocol::V1 => Box::new(v1::Session::new()),
+        Protocol::V1 => StateValue::V1(
+            v1::StateValue::Session(v1::Session::new()),
+        ),
     }
 }
 
 
 #[cfg(windows)]
-fn first_state(rpcver: Protocol) -> BoxState
+fn first_state(rpcver: Protocol) -> StateValue
 {
     match rpcver {
-        Protocol::V1 => Box::new(v1::InitSession::new()),
+        Protocol::V1 => StateValue::V1(
+            v1::StateValue::InitSession(v1::InitSession::new()),
+        ),
     }
 }
 
 
-fn version(req: Request) -> SasdResult<(Option<BoxState>, Option<Message>)>
+fn version(req: Request) -> SasdResult<(Option<StateValue>, Option<Message>)>
 {
     let request_args = req.message_args();
     if request_args.len() != 1 {
@@ -141,7 +202,7 @@ fn version(req: Request) -> SasdResult<(Option<BoxState>, Option<Message>)>
 
 pub trait State {
     fn handle_version(&mut self, state: &mut SessionStateHandle, msg: Message)
-        -> SasdResult<(Option<BoxState>, Option<Message>)>
+        -> SasdResult<(Option<StateValue>, Option<Message>)>
     {
         // Check request method value
         let code = msg.as_vec()[2].as_u64().ok_or(
@@ -163,7 +224,7 @@ pub trait State {
     }
 
     fn handle_done(&mut self, state: &mut SessionStateHandle, msg: Message)
-        -> SasdResult<(Option<BoxState>, Option<Message>)>
+        -> SasdResult<(Option<StateValue>, Option<Message>)>
     {
         // Check notification code value
         let code = msg.as_vec()[1].as_u64().ok_or(
@@ -186,7 +247,7 @@ pub trait State {
 
     // Accepts a RequestMessage, and returns (State, ResponseMessage)
     fn change(&mut self, mut state: SessionStateHandle, msg: Message)
-        -> SasdResult<(Option<BoxState>, Option<Message>)>
+        -> SasdResult<(Option<StateValue>, Option<Message>)>
     {
         match msg.message_type() {
             MessageType::Request => self.handle_version(&mut state, msg),
@@ -196,9 +257,9 @@ pub trait State {
     }
 
     fn dispatch(&mut self, state: &mut SessionStateHandle, msg: Message)
-        -> SasdResult<(Option<BoxState>, Option<Message>)>;
+        -> SasdResult<(Option<StateValue>, Option<Message>)>;
 
-    fn kind(&self) -> StateKind;
+    // fn kind(&self) -> StateKind;
 }
 
 
@@ -207,7 +268,17 @@ pub trait State {
 // ===========================================================================
 
 
+#[derive(Debug)]
 pub struct Start;
+
+
+// Implement From and Into traits
+impl From<Start> for StateValue {
+    fn from(s: Start) -> StateValue
+    {
+        StateValue::Start(s)
+    }
+}
 
 
 impl Start {
@@ -215,19 +286,26 @@ impl Start {
     {
         Start
     }
+
+    pub fn from_value(v: StateValue) -> SasdResult<Self>
+    {
+        match v {
+            StateValue::Start(s) => Ok(s),
+            _ => {
+                let expected = format!("StateValue::Start");
+                let value = format!("StateValue::{:?}", v);
+                Err(SasdErrorKind::InvalidStateValue(expected, value).into())
+            }
+        }
+    }
 }
 
 
 impl State for Start {
     fn dispatch(&mut self, _state: &mut SessionStateHandle, _msg: Message)
-        -> SasdResult<(Option<BoxState>, Option<Message>)>
+        -> SasdResult<(Option<StateValue>, Option<Message>)>
     {
         bail!(SasdErrorKind::UnexpectedMessage)
-    }
-
-    fn kind(&self) -> StateKind
-    {
-        StateKind::Start
     }
 }
 
@@ -252,8 +330,7 @@ mod test {
 
     use super::{Request, Response, version};
     use error::SasdErrorKind;
-    use protocol::{Protocol, StateKind};
-    use protocol::v1;
+    use protocol::{Protocol, StateValue};
     use rpc;
 
     mod version {
@@ -418,7 +495,7 @@ mod test {
         }
 
         quickcheck! {
-            #[cfg(target_family = "windows")]
+            #[cfg(windows)]
             fn request_val_good(val: <Protocol as CodeConvert<Protocol>>::int_type) -> TestResult
             {
                 if val as u64 > Protocol::max_number() || val == 0 {
@@ -445,15 +522,15 @@ mod test {
                 // (Some(InitSession), None) is returned
                 // ---------------------------------------
                 let value = match result {
-                    Ok((Some(state), None)) => {
-                        state.kind() == StateKind::V1(v1::V1StateKind::InitSession)
+                    Ok((Some(StateValue::V1(s)), None)) => {
+                        s.is_initsession()
                     }
                     _ => false,
                 };
                 TestResult::from_bool(value)
             }
 
-            #[cfg(target_family = "unix")]
+            #[cfg(unix)]
             fn request_val_good(val: <Protocol as CodeConvert<Protocol>>::int_type) -> TestResult
             {
                 if val as u64 > Protocol::max_number() || val == 0 {
@@ -477,11 +554,11 @@ mod test {
 
                 // ---------------------------------------
                 // THEN
-                // (Some(Session), None) is returned
+                // (Some(StateValue::Session), None) is returned
                 // ---------------------------------------
                 let value = match result {
-                    Ok((Some(state), None)) => {
-                        state.kind() == StateKind::V1(v1::V1StateKind::Session)
+                    Ok((Some(StateValue::V1(ref v)), None)) => {
+                        v.is_session()
                     }
                     _ => false,
                 };

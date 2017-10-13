@@ -19,9 +19,9 @@
 
 // Local imports
 
-use protocol::BoxState;
 #[cfg(windows)]
 use protocol::SessionStore;
+use protocol::StateValue;
 use settings::SettingsHandle;
 
 
@@ -36,13 +36,13 @@ pub struct SessionState {
     session_store: SessionStore,
 
     server_settings: SettingsHandle,
-    state: BoxState,
+    state: StateValue,
 }
 
 
 impl SessionState {
     #[cfg(unix)]
-    pub fn new(server_settings: SettingsHandle, state: BoxState)
+    pub fn new(server_settings: SettingsHandle, state: StateValue)
         -> SessionState
     {
         SessionState {
@@ -54,7 +54,7 @@ impl SessionState {
     #[cfg(windows)]
     pub fn new(
         session_store: SessionStore, server_settings: SettingsHandle,
-        state: BoxState
+        state: StateValue
     ) -> SessionState
     {
         SessionState {

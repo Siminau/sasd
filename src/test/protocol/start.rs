@@ -56,11 +56,11 @@ mod dispatch {
             let msg = Message::from(val).unwrap();
 
             // Create Test state object
-            let mut test = Box::new(Start);
+            let mut test = Start::new();
 
             // This dummy is only for testing since cannot access the
             // state that's attached to the session state
-            let dummy = Box::new(Start);
+            let dummy = StateValue::Start(Start::new());
 
             // Create session state
             let mut session_state = dummy_session_state(dummy);
@@ -91,12 +91,12 @@ mod dispatch {
 }
 
 
-mod kind {
+mod from {
     use super::*;
     use protocol::Start;
 
     #[test]
-    fn kind_is_start()
+    fn convert_to_statevalue()
     {
         // -----------------------------
         // GIVEN
@@ -107,15 +107,66 @@ mod kind {
 
         // -----------------------------------------------------------
         // WHEN
-        // Start::kind() is called
+        // StateValue::from() is called
         // -----------------------------------------------------------
-        let result = start.kind();
+        let result = StateValue::from(start);
 
         // ---------------------------------------
         // THEN
         // StateKind::Start is returned
         // ---------------------------------------
-        assert!(matches!(result, StateKind::Start));
+        assert!(matches!(result, StateValue::Start(_)));
+    }
+}
+
+
+mod statevalue_is_start {
+    use protocol::{Start, StateValue};
+    use protocol::v1;
+
+    #[test]
+    fn is_start_true()
+    {
+        // --------------------------
+        // GIVEN
+        // a StateValue::Start value
+        // --------------------------
+        let val = StateValue::Start(Start::new());
+
+        // --------------------
+        // WHEN
+        // StateValue::is_start() is called
+        // --------------------
+        let result = val.is_start();
+
+        // --------------------
+        // THEN
+        // true is returned
+        // --------------------
+        assert!(result);
+    }
+
+    #[test]
+    fn is_start_false()
+    {
+        // --------------------------
+        // GIVEN
+        // a StateValue::V1(v1::StateValue::Session) value
+        // --------------------------
+        let state = v1::Session::new();
+        let val = StateValue::V1(v1::StateValue::Session(state));
+
+        // --------------------
+        // WHEN
+        // StateValue::is_start() is called
+        // --------------------
+        let result = val.is_start();
+
+        // --------------------
+        // THEN
+        // false is returned
+        // --------------------
+        assert!(!result);
     }
 }
 

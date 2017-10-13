@@ -25,6 +25,7 @@ use super::*;
 
 mod handle_version {
     use super::*;
+    use protocol::Start;
     use siminau_rpc::message::CodeConvert;
 
     // --------------------
@@ -50,12 +51,12 @@ mod handle_version {
         let val = Value::Array(vec![msgtype, msgid, msgcode, msgargs]);
         let msg = Message::from(val).unwrap();
 
-        // Create Test state object
-        let mut test = Box::new(Test);
+        // Create Start state object
+        let mut test = Start::new();
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -104,11 +105,11 @@ mod handle_version {
         let msg = Message::from(msgval).unwrap();
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Start::new();
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -161,11 +162,11 @@ mod handle_version {
         let msg = Message::from(val).unwrap();
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -193,7 +194,7 @@ mod handle_version {
         cleanup_settings(session_state);
     }
 
-    #[cfg(target_family = "windows")]
+    #[cfg(windows)]
     #[test]
     fn call_version()
     {
@@ -206,11 +207,11 @@ mod handle_version {
         let request = Request::new(42, rpc::RequestMethod::Version, args);
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -227,9 +228,7 @@ mod handle_version {
         // version() is called
         // ---------------------------------------
         let value = match result {
-            Ok((Some(s), None)) => {
-                s.kind() == StateKind::V1(v1::V1StateKind::InitSession)
-            }
+            Ok((Some(StateValue::V1(ref v)), None)) => v.is_initsession(),
             _ => false,
         };
 
@@ -241,7 +240,7 @@ mod handle_version {
         cleanup_settings(session_state);
     }
 
-    #[cfg(target_family = "unix")]
+    #[cfg(unix)]
     #[test]
     fn call_version()
     {
@@ -254,11 +253,11 @@ mod handle_version {
         let request = Request::new(42, rpc::RequestMethod::Version, args);
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -275,9 +274,7 @@ mod handle_version {
         // version() is called
         // ---------------------------------------
         let value = match result {
-            Ok((Some(s), None)) => {
-                s.kind() == StateKind::V1(v1::V1StateKind::Session)
-            }
+            Ok((Some(StateValue::V1(ref v)), None)) => v.is_session(),
             _ => false,
         };
 
@@ -297,6 +294,7 @@ mod handle_version {
 
 mod handle_done {
     use super::*;
+    use protocol::Start;
     use siminau_rpc::message::CodeConvert;
 
     #[test]
@@ -316,11 +314,11 @@ mod handle_done {
         let msg = Message::from(val).unwrap();
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -370,11 +368,11 @@ mod handle_done {
         let msg = Message::from(msgval).unwrap();
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -426,11 +424,11 @@ mod handle_done {
         let msg = Message::from(val).unwrap();
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -470,11 +468,11 @@ mod handle_done {
         let info = Info::new(rpc::Notice::Done, args);
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -511,7 +509,7 @@ mod handle_done {
 
 mod change {
     use super::*;
-    // use siminau_rpc::message::CodeConvert;
+    use protocol::Start;
 
     use siminau_rpc::message::response::RpcResponse;
 
@@ -528,11 +526,11 @@ mod change {
             Response::new(42, rpc::ResponseError::UnsupportedVersion, res);
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -580,18 +578,13 @@ mod change {
 
         impl State for Test {
             fn dispatch(&mut self, _state: &mut SessionStateHandle, _msg: Message)
-                -> SasdResult<(Option<BoxState>, Option<Message>)>
-            {
-                unreachable!()
-            }
-
-            fn kind(&self) -> StateKind
+                -> SasdResult<(Option<StateValue>, Option<Message>)>
             {
                 unreachable!()
             }
 
             fn handle_version(&mut self, _state: &mut SessionStateHandle, _msg: Message)
-                -> SasdResult<(Option<BoxState>, Option<Message>)>
+                -> SasdResult<(Option<StateValue>, Option<Message>)>
             {
                 let res = Value::from("Hello world!");
                 let resp = Response::new(
@@ -604,11 +597,11 @@ mod change {
         }
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);
@@ -653,18 +646,13 @@ mod change {
 
         impl State for Test {
             fn dispatch(&mut self, _state: &mut SessionStateHandle, _msg: Message)
-                -> SasdResult<(Option<BoxState>, Option<Message>)>
-            {
-                unreachable!()
-            }
-
-            fn kind(&self) -> StateKind
+                -> SasdResult<(Option<StateValue>, Option<Message>)>
             {
                 unreachable!()
             }
 
             fn handle_done(&mut self, _state: &mut SessionStateHandle, _msg: Message)
-                -> SasdResult<(Option<BoxState>, Option<Message>)>
+                -> SasdResult<(Option<StateValue>, Option<Message>)>
             {
                 let res = Value::from("Answer 42");
                 let resp = Response::new(
@@ -677,11 +665,11 @@ mod change {
         }
 
         // Create Test state object
-        let mut test = Box::new(Test);
+        let mut test = Test;
 
         // This dummy is only for testing since cannot access the
         // state that's attached to the session state
-        let dummy = Box::new(Test);
+        let dummy = StateValue::Start(Start::new());
 
         // Create session state
         let mut session_state = dummy_session_state(dummy);

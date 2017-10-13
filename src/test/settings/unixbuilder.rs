@@ -70,6 +70,7 @@ mod socket_dir {
     use quickcheck::TestResult;
     use settings::SettingsBuilder;
     use std::env;
+    use std::path::PathBuf;
 
     #[test]
     fn valid_path_return_unix()
@@ -228,7 +229,8 @@ mod socket_dir {
 
     quickcheck! {
         fn bad_path_random_string(badpath: String) -> TestResult {
-            if badpath == String::from(".") || badpath == String::from("..") {
+            let ignore = vec![".", "..", "/"];
+            if ignore.iter().any(|i| PathBuf::from(&badpath[..]) == PathBuf::from(i)) {
                 return TestResult::discard()
             }
 

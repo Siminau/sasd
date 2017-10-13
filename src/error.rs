@@ -41,6 +41,11 @@ error_chain! {
             description("settings validation failure")
             display("Settings validation error: {}", msg)
         }
+        InvalidStateValue(expected: String, value: String) {
+            description("invalid StateValue")
+            display("Invalid StateValue: expected {}, got {} instead",
+                    expected, value)
+        }
     }
 }
 

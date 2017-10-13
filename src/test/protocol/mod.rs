@@ -9,7 +9,9 @@
 
 
 mod state;
+mod statevalue;
 mod start;
+mod v1;
 
 
 // ===========================================================================
@@ -32,8 +34,7 @@ use tempdir::TempDir;
 // Local imports
 
 use error::{SasdErrorKind, SasdResult};
-use protocol::{BoxState, Info, Protocol, Request, Response, State, StateKind};
-use protocol::v1;
+use protocol::{Info, Protocol, Request, Response, State, StateValue};
 
 #[cfg(windows)]
 use protocol::SessionStore;
@@ -60,14 +61,9 @@ struct Test;
 
 impl State for Test {
     fn dispatch(&mut self, _state: &mut SessionStateHandle, _msg: Message)
-        -> SasdResult<(Option<BoxState>, Option<Message>)>
+        -> SasdResult<(Option<StateValue>, Option<Message>)>
     {
         Ok((None, None))
-    }
-
-    fn kind(&self) -> StateKind
-    {
-        StateKind::Start
     }
 }
 
@@ -106,7 +102,7 @@ fn dummy_settings() -> SasdResult<SettingsHandle>
 
 
 #[cfg(unix)]
-pub fn dummy_session_state(state: Box<State>) -> SessionState
+pub fn dummy_session_state(state: StateValue) -> SessionState
 {
     let settings = dummy_settings().unwrap();
     SessionState::new(settings, state)
@@ -114,7 +110,7 @@ pub fn dummy_session_state(state: Box<State>) -> SessionState
 
 
 #[cfg(windows)]
-pub fn dummy_session_state_nofs(state: Box<State>) -> SessionState
+pub fn dummy_session_state_nofs(state: StateValue) -> SessionState
 {
     let auth_token = "world".to_owned();
     let settings =
@@ -132,7 +128,7 @@ pub fn dummy_session_state_nofs(state: Box<State>) -> SessionState
 }
 
 #[cfg(windows)]
-pub fn dummy_session_state(state: Box<State>) -> SessionState
+pub fn dummy_session_state(state: StateValue) -> SessionState
 {
     let settings = dummy_settings().unwrap();
     let store = SessionStore::default();
