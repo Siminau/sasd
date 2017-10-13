@@ -227,6 +227,132 @@ mod sessionstate {
 
 mod initsession {
 
+    mod check_msg_method {
+        use error::SasdErrorKind;
+        use protocol::{State, StateValue};
+        use protocol::v1::{InitSession, SessionRequest,
+                           StateValue as V1StateValue};
+        use quickcheck::TestResult;
+        use rmpv::Value;
+        use rpc::v1::SessionMethod;
+
+        // Helpers
+
+        use test::protocol::dummy_session_state_nofs;
+
+        #[test]
+        fn non_attach_authattach_msg_error()
+        {
+            // -------------------------------------------------------
+            // GIVEN
+            // a SessionRequest message and
+            // the message method is not AuthAttach and
+            // the message method is not Attach and
+            // an empty sessionstore and
+            // an InitSession instance
+            // -------------------------------------------------------
+            let request =
+                SessionRequest::new(42, SessionMethod::KeyList, vec![]);
+
+            // Create state
+            let mut init = InitSession::new();
+
+            // Create session state
+            let dummy =
+                StateValue::V1(V1StateValue::InitSession(InitSession::new()));
+
+            let mut session_state = dummy_session_state_nofs(dummy);
+
+            // ------------------------------------------------------------
+            // WHEN
+            // InitSession::dispatch() is called with the sessionstore and
+            // message
+            // ------------------------------------------------------------
+            let result = {
+                let mut handle = session_state.handle();
+                init.dispatch(&mut handle, request.into())
+            };
+
+            // ----------------------------------------------------
+            // THEN
+            // An error is returned and
+            // the error is UnexpectedMessage
+            // ----------------------------------------------------
+            let testval = match result {
+                Ok(_) => false,
+                Err(e) => {
+                    match e.kind() {
+                        &SasdErrorKind::UnexpectedMessage => true,
+                        _ => false,
+                    }
+                }
+            };
+            assert!(testval);
+        }
+
+        // quickcheck! {
+        //     fn authattach_args_error(numargs: usize) -> TestResult
+        //     {
+        //         if numargs == 1 {
+        //             return TestResult::discard()
+        //         }
+
+        //         // -------------------------------------------------------
+        //         // GIVEN
+        //         // a SessionRequest message and
+        //         // the message method is AuthAttach and
+        //         // the message has a number of args != 1 and
+        //         // an empty sessionstore and
+        //         // an InitSession instance
+        //         // -------------------------------------------------------
+        //         // Setup args
+        //         let mut args = Vec::new();
+        //         for i in 0..numargs {
+        //             args.push(Value::from(i));
+        //         }
+
+        //         // Create request message
+        //         let request =
+        //             SessionRequest::new(42, SessionMethod::AuthAttach, args);
+
+        //         // Create state
+        //         let mut auth = AuthSession::new();
+
+        //         // Create session state
+        //         let dummy =
+        //             StateValue::V1(V1StateValue::AuthSession(AuthSession::new()));
+
+        //         let mut session_state = dummy_session_state_nofs(dummy);
+
+        //         // ------------------------------------------------------------
+        //         // WHEN
+        //         // AuthSession::dispatch() is called with the sessionstore and
+        //         // message
+        //         // ------------------------------------------------------------
+        //         let result = {
+        //             let mut handle = session_state.handle();
+        //             auth.dispatch(&mut handle, request.into())
+        //         };
+
+        //         // ----------------------------------------------------
+        //         // THEN
+        //         // An error is returned and
+        //         // the error is InvalidMessage
+        //         // ----------------------------------------------------
+        //         let testval = match result {
+        //             Ok(_) => false,
+        //             Err(e) => {
+        //                 match e.kind() {
+        //                     &SasdErrorKind::InvalidMessage => true,
+        //                     _ => false,
+        //                 }
+        //             }
+        //         };
+        //         TestResult::from_bool(testval)
+        //     }
+        // }
+    }
+
     mod from_value {
         use error::SasdErrorKind;
         use protocol::StateValue;

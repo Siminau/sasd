@@ -94,11 +94,16 @@ impl SessionState for InitSession {
     {
         match req.message_method() {
             rpc1::SessionMethod::Attach => {
-                let numargs = req.message_args().len();
-                match numargs {
-                    0 | 1 => Ok(req),
-                    _ => Err(SasdErrorKind::InvalidMessage.into()),
+                if req.message_args().len() > 0 {
+                    bail!(SasdErrorKind::InvalidMessage);
                 }
+                Ok(req)
+            }
+            rpc1::SessionMethod::AuthAttach => {
+                if req.message_args().len() != 1 {
+                    bail!(SasdErrorKind::InvalidMessage);
+                }
+                Ok(req)
             }
             _ => Err(SasdErrorKind::UnexpectedMessage.into()),
         }

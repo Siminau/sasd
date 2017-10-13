@@ -26,9 +26,7 @@ use siminau_rpc::message::CodeConvert;
 #[cfg(target_family = "windows")]
 #[derive(Debug, PartialEq, Clone, CodeConvert)]
 pub enum SessionMethod {
-    // Request to attach to the agent session. To re-do session auth, no
-    // arguments are sent. To skip session auth, a single arg is sent:
-    // 1. auth token
+    // Request to attach to the agent session. No arguments are sent.
     //
     // Response will be a list with a single item:
     // 1. Absolute path to a temporary file that contains an auth token
